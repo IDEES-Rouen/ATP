@@ -145,15 +145,36 @@ species Consommateur {
 	//TODO ajouter l'argent dans le calcul
 	//operateur sort pour ranger dans l'ordre de distance, ou alors on fait un calcul du prix pour chaque, puis on trie en fonction du prix, stocké dans un ou deux tableaux (arrays)
 	reflex acheter { //on achète à tous les intermédiaires qui ne sont pas des consommateurs
-		do achat1;
+//		do achat0;
+		do achat1; //à remplacer en fonction de la méthode que l'on veut tester
 	}
 	
-	//TODO : préparer l'ajout d'un prix ou le calcul d'une autre distance (ou les deux)
+	action achat0{
+		//choix aléatoire, quelques soit la distance, etc (utiliser le shuffle). Utilisé comm comparateur de base.
+		loop tempInt over: shuffle(Intermediaire where (not(each.est_consommateur))){
+			if (recupere<besoin){
+				int recupTemp;
+				recupTemp <- min(besoin,tempInt.stock);
+				recupere <- recupere+recupTemp;
+				if(tempInt.est_producteur){
+					write "achat prod " + recupTemp;
+				} else {
+					write "achat inter " + recupTemp;
+				}
+				ask tempInt{
+					stock <- stock - recupTemp;
+				}
+			}
+		}
+		mon_inter.capacite <- besoin;
+		mon_inter.stock <- recupere;
+	}
+	
 	action achat1 {
 		//Achat en fonction de la distance, sans pénalité rajoutée par les intermédiaires.
 		//Il faut récupérer l'ensemble des inter vendeurs et les classer par distance puis acheter
-		list<Intermediaire> temp <- Intermediaire where (/*each.stock>0 and */not(each.est_consommateur));
-		temp <- temp sort_by(each distance_to self);
+		list<Intermediaire> temp <- Intermediaire where (not(each.est_consommateur));
+		temp <- temp sort_by(each distance_to self); //On peut mettre des expressions dans le sort_by.
 		loop tempInt over: temp{
 			if (recupere<besoin){
 				int recupTemp;
@@ -171,6 +192,11 @@ species Consommateur {
 		}
 		mon_inter.capacite <- besoin;
 		mon_inter.stock <- recupere;
+	}
+	
+	//TODO : préparer l'ajout d'un prix ou le calcul d'une autre distance (ou les deux)
+	action achat2{
+		
 	}
 	
 	//un carré de couleur dont la taille peut varier en foction d'un paramètre (le besoin, l'argent, etc ?)
@@ -216,13 +242,35 @@ species Producteur{
 	
 	reflex vendre { //on vend à tous les intermédiaires qui ne sont pas des producteurs
 		if(mon_inter.stock>0){
+//			do vente0;
 			do vente1;
 		}
 	}
 	
+	action vente0{
+		//choix aléatoire, quelques soit la distance, etc (utiliser le shuffle). Utilisé comm comparateur de base.
+		loop tempInt over: shuffle(Intermediaire where not(each.est_producteur)){
+				if(stock>0){
+					ask tempInt{
+						if(stock<capacite and myself.stock>0){
+						int echange <- min(capacite-stock,myself.stock);
+						stock <- stock + echange;
+						myself.stock <- myself.stock-echange;
+							if(self.est_consommateur){
+								write "vente conso " + self + " " + echange;
+							} else {
+								write "vente inter " + self + " " + echange;
+							}
+						}
+					}
+				}
+			}
+			mon_inter.stock <- stock;
+	}
+	
 	action vente1{
 		list<Intermediaire> temp <- (Intermediaire where not(each.est_producteur));
-		temp <- temp sort_by(each distance_to self);//+each.prix ? Peut-on mettre des expressions dans le sort_by ?
+		temp <- temp sort_by(each distance_to self); //On peut mettre des expressions dans le sort_by.
 		loop tempInt over: temp{
 				if(stock>0){
 					ask tempInt{
@@ -240,6 +288,10 @@ species Producteur{
 				}
 			}
 			mon_inter.stock <- stock;
+	}
+	
+	action vente2{
+		
 	}
 	
 	//un triangle dont la taille va dépenre du stock
