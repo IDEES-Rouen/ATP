@@ -171,10 +171,19 @@ species Consommateur {
 		mon_inter.stock <- recupere;
 	}
 	
-	//TODO ajouter l'argent dans le calcul, ainsi que la distance
+	//TODO ajouter l'argent dans le calcul
 	//operateur sort pour ranger dans l'ordre de distance, ou alors on fait un calcul du prix pour chaque, puis on trie en fonction du prix, stocké dans un ou deux tableaux (arrays)
 	reflex acheter { //on achète à tous les intermédiaires qui ne sont pas des consommateurs
-		loop tempInt over: (Intermediaire where (/*each.stock>0 and */not(each.est_consommateur))){
+		do achat1;
+	}
+	
+	//TODO : préparer l'ajout d'un prix ou le calcul d'une autre distance (ou les deux)
+	action achat1 {
+		//Achat en fonction de la distance, sans pénalité rajoutée par les intermédiaires.
+		//Il faut récupérer l'ensemble des inter vendeurs et les classer par distance puis acheter
+		list<Intermediaire> temp <- Intermediaire where (/*each.stock>0 and */not(each.est_consommateur));
+		temp <- temp sort_by(each distance_to self);
+		loop tempInt over: temp{
 			if (recupere<besoin){
 				int recupTemp;
 				recupTemp <- min(besoin,tempInt.stock);
@@ -220,7 +229,6 @@ species Intermediaire {
 	}
 }
 
-//TODO : il faut gérer les intermédiaires liés aux Prods et aux Consommateurs sur chaque action de production, vente et achat.
 species Producteur{
 	int production <- prodTauxFixe + rnd(prodTaux) update:prodTauxFixe + rnd(prodTaux) ;//représente le nombre de marchandise produite en 1 cycle
 	int stock <- 0 ;
@@ -237,7 +245,14 @@ species Producteur{
 	
 	reflex vendre { //on vend à tous les intermédiaires qui ne sont pas des producteurs
 		if(mon_inter.stock>0){
-			loop tempInt over: (Intermediaire where not(each.est_producteur)){
+			do vente1;
+		}
+	}
+	
+	action vente1{
+		list<Intermediaire> temp <- (Intermediaire where not(each.est_producteur));
+		temp <- temp sort_by(each distance_to self);//+each.prix ? Peut-on mettre des expressions dans le sort_by ?
+		loop tempInt over: temp{
 				if(stock>0){
 					ask tempInt{
 						if(stock<capacite and myself.stock>0){
@@ -254,7 +269,6 @@ species Producteur{
 				}
 			}
 			mon_inter.stock <- stock;
-		}
 	}
 	
 	//un triangle dont la taille va dépenre du stock
@@ -267,12 +281,12 @@ species Producteur{
 	}
 }
 
-//TODO : créer des entitées marchandises qui seront réellements échangées entre les intermédiaires.
+//TODO : créer des entitées marchandises qui seront réellements échangées entre les intermédiaires. Cela permettrait aussi le traçage des marchandises (pour la sortie)
 species Marchandise{
-	//un carré de taille fixe, la couleur pourrait varier en fonction du type de marchandise.
 	int type;
 	Intermediaire provenance;
 	
+	//un carré de taille fixe, la couleur pourrait varier en fonction du type de marchandise.
 	aspect base {
 		
 	}
