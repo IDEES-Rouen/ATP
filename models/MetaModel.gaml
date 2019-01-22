@@ -22,41 +22,9 @@ global{
 	int stock_max_prod_fixe <- 100 parameter: true;
 	
 	init {
-		//TODO : mettre ces procédures de création dans des actions pour être réutilisée.
-		create Consommateur number: nb_init_consommateur{
-			//pour chaque consommateur, on lui crée un intermédiaire qui sera sa partie commerciale
-			create Intermediaire number: 1{
-				location <-myself.location;
-				est_consommateur <- true;
-				est_producteur <- false;
-				capacite <- myself.besoin;
-				stock <- myself.recupere;
-				argent <- myself.argent;
-				
-				ask myself{
-					mon_inter <- myself;
-				}
-			}
-		}
-		create Producteur number: nb_init_prod{
-			//pour chaque producteur, on lui crée un intermédiaire qui sera sa partie commerciale
-			create Intermediaire number: 1{
-				location <-myself.location;
-				est_consommateur <- false;
-				est_producteur <- true;
-				capacite <- myself.stockMax;
-				stock <- myself.stock;
-				
-				ask myself{
-					mon_inter <- myself;
-				}
-			}
-		}
-		create Intermediaire number: nb_init_intermediaire{
-			est_producteur <- false;
-			est_consommateur <- false;
-			capacite <- rnd(capaciteInter);
-		}
+		do createConso(nb_init_consommateur);
+		do createProd(nb_init_prod);
+		do createInter(nb_init_intermediaire);
 	}
 	
 	user_command "create conso"{ //à activer avec clic-droit->world->actions
@@ -144,6 +112,9 @@ global{
 		}
 	}
 	
+	
+	//TODO : afficher des polygones représentant les aires de présence de marchandise pour chaque producteur
+	//TODO : faire la même chose mais pour chaque intermédiaire
 	reflex affichage {
 		write "-------------------------";
 		stock_en_circulation <- 0;
@@ -284,7 +255,9 @@ species Producteur{
 //TODO : créer des entitées marchandises qui seront réellements échangées entre les intermédiaires. Cela permettrait aussi le traçage des marchandises (pour la sortie)
 species Marchandise{
 	int type;
-	Intermediaire provenance;
+	int quantity;
+	Intermediaire provenance; //le dernier inter avant achat
+	Producteur lieuProd; //l'endroit où la marchandise a été produite
 	
 	//un carré de taille fixe, la couleur pourrait varier en fonction du type de marchandise.
 	aspect base {
