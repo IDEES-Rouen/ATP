@@ -170,9 +170,7 @@ species Consommateur {
 		mon_inter.stock <- recupere;
 	}
 	
-	action achat1 {
-		//Achat en fonction de la distance, sans pénalité rajoutée par les intermédiaires.
-		//Il faut récupérer l'ensemble des inter vendeurs et les classer par distance puis acheter
+	action achat1 { //Achat du maximum (en quantité) en fonction de la distance, sans pénalité rajoutée par les intermédiaires.
 		list<Intermediaire> temp <- Intermediaire where (not(each.est_consommateur));
 		temp <- temp sort_by(each distance_to self); //On peut mettre des expressions dans le sort_by.
 		loop tempInt over: temp{
@@ -268,7 +266,7 @@ species Producteur{
 			mon_inter.stock <- stock;
 	}
 	
-	action vente1{
+	action vente1{ //vente du maximum (en qantité) au plus proche
 		list<Intermediaire> temp <- (Intermediaire where not(each.est_producteur));
 		temp <- temp sort_by(each distance_to self); //On peut mettre des expressions dans le sort_by.
 		loop tempInt over: temp{
