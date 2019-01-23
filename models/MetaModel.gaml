@@ -147,6 +147,7 @@ species Consommateur {
 	reflex acheter { //on achète à tous les intermédiaires qui ne sont pas des consommateurs
 //		do achat0;
 		do achat1; //à remplacer en fonction de la méthode que l'on veut tester
+//		do achat2;
 	}
 	
 	action achat0{
@@ -193,8 +194,26 @@ species Consommateur {
 	}
 	
 	//TODO : préparer l'ajout d'un prix ou le calcul d'une autre distance (ou les deux)
-	action achat2{
-		
+	action achat2{ // Achat au plus loin
+		list<Intermediaire> temp <- Intermediaire where (not(each.est_consommateur));
+		temp <- temp sort_by(1/each distance_to self); //On peut mettre des expressions dans le sort_by.
+		loop tempInt over: temp{
+			if (recupere<besoin){
+				int recupTemp;
+				recupTemp <- min(besoin,tempInt.stock);
+				recupere <- recupere+recupTemp;
+				if(tempInt.est_producteur){
+					write "achat prod " + recupTemp;
+				} else {
+					write "achat inter " + recupTemp;
+				}
+				ask tempInt{
+					stock <- stock - recupTemp;
+				}
+			}
+		}
+		mon_inter.capacite <- besoin;
+		mon_inter.stock <- recupere;
 	}
 	
 	//un carré de couleur dont la taille peut varier en foction d'un paramètre (le besoin, l'argent, etc ?)
@@ -242,6 +261,7 @@ species Producteur{
 		if(mon_inter.stock>0){
 //			do vente0;
 			do vente1;
+//			do vente2;
 		}
 	}
 	
@@ -288,8 +308,26 @@ species Producteur{
 			mon_inter.stock <- stock;
 	}
 	
-	action vente2{
-		
+	action vente2{ //Vente au plus loin
+		list<Intermediaire> temp <- (Intermediaire where not(each.est_producteur));
+		temp <- temp sort_by(1/each distance_to self); //On peut mettre des expressions dans le sort_by.
+		loop tempInt over: temp{
+				if(stock>0){
+					ask tempInt{
+						if(stock<capacite and myself.stock>0){
+						int echange <- min(capacite-stock,myself.stock);
+						stock <- stock + echange;
+						myself.stock <- myself.stock-echange;
+							if(self.est_consommateur){
+								write "vente conso " + self + " " + echange;
+							} else {
+								write "vente inter " + self + " " + echange;
+							}
+						}
+					}
+				}
+			}
+			mon_inter.stock <- stock;
 	}
 	
 	//un triangle dont la taille va dépenre du stock
@@ -315,7 +353,7 @@ species Marchandise{
 	}
 }
 
-experiment name type: gui {
+experiment Propagation type: gui {
 
 	
 	// Define parameters here if necessary
