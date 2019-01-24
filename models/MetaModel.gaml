@@ -173,7 +173,7 @@ species Consommateur {
 	
 	action achat1 { //Achat du maximum (en quantité) en fonction de la distance, sans pénalité rajoutée par les intermédiaires.
 		list<Intermediaire> temp <- Intermediaire where (not(each.est_consommateur));
-		temp <- temp sort_by(each distance_to self); //On peut mettre des expressions dans le sort_by.
+		temp <- temp sort_by(each distance_to self); //Le distance_to s'applique sur la topologie de l'agent appelant (chaque espèce possède une topology comme built-in attribute sur laquelle il évolue)
 		loop tempInt over: temp{
 			if (recupere<besoin){
 				int recupTemp;
