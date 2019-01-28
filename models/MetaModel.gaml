@@ -341,6 +341,7 @@ species Producteur{
 }
 
 //TODO : créer des entitées marchandises qui seront réellements échangées entre les intermédiaires. Cela permettrait aussi le traçage des marchandises (pour la sortie)
+//TODO : les marchandisent se déplaceront jusqu'à arriver à un consommateur. Ensuite, lles resteront là où elles sont, pour les comptes à la fin.
 species Marchandise{
 	int type;
 	int quantity;
