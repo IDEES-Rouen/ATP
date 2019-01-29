@@ -13,6 +13,8 @@ global{
 	int nb_init_prod <- 2 parameter: true;
 	geometry shape <- square(200/*0*/);
 	float averageDistance <- 0.0;
+	float distanceMax <- 0.0;
+	float distanceMin <- 0.0;
 	int prodTaux <- 5 parameter:true;
 	int prodTauxFixe <- 50 parameter:true;
 	int consumTaux <- 5 parameter:true;
@@ -122,8 +124,18 @@ global{
 	reflex affichage {
 		write "-------------------------";
 		averageDistance <- 0.0;
+		if(not empty(Marchandise)){
+			distanceMax <- first(Marchandise).distance;
+			distanceMin <- first(Marchandise).distance;
+		}
 		loop temp over: Marchandise{
 			averageDistance<- averageDistance + temp.distance;
+			if(temp.distance>distanceMax){
+				distanceMax <- temp.distance;
+			}
+			if(temp.distance<distanceMin){
+				distanceMin <- temp.distance;
+			}
 		}
 		if(not empty(Marchandise)){
 			averageDistance <- averageDistance/length(Marchandise);
@@ -155,7 +167,7 @@ global{
 					create PolygonWare number: 1{
 					placeProd <- tempProd;
 					list<Marchandise> tempWares <- Marchandise where (each.lieuProd = tempProd);
-					shape <- polygon(tempWares);
+					shape <- /*convex_hull(*/polygon(tempWares)/*)*/;
 					}
 				}
 			}
@@ -364,7 +376,6 @@ species Producteur{
 		temp <- temp sort_by(each distance_to self); //On peut mettre des expressions dans le sort_by.
 		loop tempInt over: temp{
 				if(stock>0){
-//					ask tempInt{
 						if(tempInt.stock<tempInt.capacite and /*myself.*/stock>0){
 						int echange <- min(tempInt.capacite-tempInt.stock,/*myself.*/stock);
 						if(echange >0){
@@ -384,10 +395,8 @@ species Producteur{
 									}
 								} else {
 									write "vente inter " + tempInt + " " + echange;
-									//on crée une marchandise avec les bonnes données.
 									create Marchandise number: 1{
 										lieuProd <- myself;
-										provenance <- tempInt; //On met directement la provenance ici.
 										quantity <- echange;
 										target <- tempInt.location;
 										distance <- myself distance_to tempInt;
@@ -395,7 +404,6 @@ species Producteur{
 								}
 							}
 						}
-//					}
 				}
 			}
 			mon_inter.stock <- stock;
@@ -445,13 +453,11 @@ species Marchandise{ //Ware en anglais (ou commodity)
 	point target <- nil; //le lieu de destination pour le déplacement.
 	float distance; //représente la distance parcouru par la marchandise.
 	
-	reflex move when: target!=nil{//la marchandise se déplace tant qu'elle n'est pas arrivée chez un consommateur
+	reflex move when: target!=nil{
 		location <- target;
 		target <- nil;
-		//Si j'arrive chez un intermédaire qui n'est pas consommateur, je change ma provenance.
 	}
 	
-	//un carré de taille fixe, la couleur pourrait varier en fonction du type de marchandise.
 	aspect base {
 		
 	}
@@ -493,13 +499,13 @@ experiment Propagation type: gui {
 			species Marchandise;
 			species PolygonWare transparency: 0.5;
 		}
-
-		//TODO : afficher la distance moyenne des marchandises
 		//TODO : afficher la proportion de marchandises en fonction de leur lieu de prod/dernier inter par lieu de consommation.
 		//TODO : afficher un temps d'attente pour être servi.
 		display chart /*refresh:every(10.0)*/  {
-			chart "Stock en circulation" type: series {
-				data "stock" value: averageDistance color: #green;
+			chart "distance of wares" type: series {
+				data "average distance" value: averageDistance color: #green;
+				data "distance max" value: distanceMax color: #red;
+				data "distance min" value:distanceMin color: #blue;
 			}
 		}
 	
