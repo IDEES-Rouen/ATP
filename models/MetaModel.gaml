@@ -7,7 +7,7 @@
 
 model MetaModel
 
-global{
+global schedules: shuffle(Consommateur) + shuffle(Intermediaire) + shuffle(Marchandise) + shuffle(Producteur){
 	int nb_init_consommateur <- 2 parameter: true;
 	int nb_init_intermediaire <- 1 parameter: true; //correspond aux intermédiaires hors producteur et consommateur
 	int nb_init_prod <- 2 parameter: true;
