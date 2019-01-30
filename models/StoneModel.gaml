@@ -181,6 +181,21 @@ global schedules: shuffle(Consommateur) + shuffle(Intermediaire) + shuffle(March
 			}
 		}
 		if isFinished {
+			int builtTimeMax<-first(Consommateur).time_to_be_built;
+			int builtTimeMin<-first(Consommateur).time_to_be_built;
+			float builtTimeAverage<-0.0;
+			loop tempConso over:Consommateur{
+				if tempConso.time_to_be_built > builtTimeMax {
+					builtTimeMax <- tempConso.time_to_be_built;
+				}
+				if tempConso.time_to_be_built < builtTimeMax {
+					builtTimeMin <- tempConso.time_to_be_built;
+				}
+				builtTimeAverage <- builtTimeAverage + tempConso.time_to_be_built;
+			}
+			write "Max time : " + builtTimeMax;
+			write "Average time : " + builtTimeAverage/length(Consommateur);
+			write "Min time : " + builtTimeMin;
 			do pause;
 		}
 	}
@@ -191,10 +206,11 @@ species Consommateur {
 	//TODO //diversifier en fonction des types et ajouter la variable d'argent.
 	int argent;
 	int besoin <- consumTauxFixe + rnd(consumTaux) ;//update:consumTauxFixe + rnd(consumTaux) ; //dans le cade de la craie, le besoin serait fixe et représenterait le besoin total de la construction 
-	int recupere <- 0 ;//update: 0; //dans le cade de la craie, les matières récupérées ne seraient pas remise à zéro à chaque tour (cette remise à zéro symbolise la consommation)
+	int recupere <- 0 ;
 	Intermediaire mon_inter; 
 	
-	bool est_construit<-false; //utilisé sur les bâtiments pour montrer que le batiment n'a plus besoin de pierre.
+	bool est_construit<-false;
+	int time_to_be_built <- 0;
 	
 	reflex updateInterStart{
 		mon_inter.capacite <- besoin;
@@ -206,6 +222,7 @@ species Consommateur {
 			est_construit <- true;
 			write self.name + " est construit";
 		}
+		time_to_be_built <- time_to_be_built +1;
 	}
 	
 	//TODO ajouter l'argent dans le calcul
