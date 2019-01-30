@@ -8,7 +8,7 @@
 model StoneModel
 
 
-global{
+global schedules: shuffle(Consommateur) + shuffle(Intermediaire) + shuffle(Marchandise) + shuffle(Producteur) {
 	int nb_init_consommateur <- 2 parameter: true;
 	int nb_init_intermediaire <- 1 parameter: true; //correspond aux intermédiaires hors producteur et consommateur
 	int nb_init_prod <- 2 parameter: true;
@@ -119,8 +119,6 @@ global{
 		}
 	}
 	
-	
-	//TODO : afficher des polygones représentant les aires de présence de marchandise pour chaque producteur
 	//TODO : faire la même chose mais pour chaque intermédiaire
 	reflex affichage {
 		write "-------------------------";
@@ -172,6 +170,18 @@ global{
 					}
 				}
 			}
+		}
+	}
+	
+	reflex stop{
+		bool isFinished <- true;
+		loop tempConso over: Consommateur{
+			if not (tempConso.est_construit){
+				isFinished <- false;
+			}
+		}
+		if isFinished {
+			do pause;
 		}
 	}
 	
