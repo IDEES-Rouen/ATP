@@ -24,6 +24,10 @@ global schedules: shuffle(Consommateur) + shuffle(Intermediaire) + shuffle(March
 	int stock_max_prod <- 10 parameter: true;
 	int stock_max_prod_fixe <- 100 parameter: true;
 	
+	int consumer_strategy <- 1 parameter: true min: 1 max: 2; //1:buy to producers and intermediries. 2:only buy to inermediairies.
+	int intermediary_strategy <- 1 parameter: true min:1 max: 3; //1: buy the stock. 2: buy stock and place orders. 3: only place orders.
+	int producer_strategy <- 1 parameter: true min: 1 max: 2; //1: produce just what has been oredered. 2: produce the maximum it can
+	
 	init {
 		do createConso(nb_init_consommateur);
 		do createProd(nb_init_prod);
