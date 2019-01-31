@@ -151,18 +151,20 @@ global schedules: shuffle(Consommateur) + shuffle(Intermediaire) + shuffle(March
 				if(exists){
 					PolygonWare polyChange <- PolygonWare first_with (each.placeProd=tempProd);
 					list<Marchandise> tempWares <- Marchandise where (each.lieuProd = tempProd);
-					list<Marchandise> wareKept;
-					add first(tempWares) to: wareKept;
-					list<Intermediaire> placeVisited;
-					add first(Intermediaire where(first(wareKept).location = each.location)) to: placeVisited;
-					loop tempWare over: tempWares{
-						Intermediaire placeWare <- first(Intermediaire where(tempWare.location = each.location));
-						if not (placeVisited contains placeWare){
-							add tempWare to: wareKept;
-							add placeWare to: placeVisited;
+					if not empty(tempWares){
+						list<Marchandise> wareKept;
+						add first(tempWares) to: wareKept;
+						list<Intermediaire> placeVisited;
+						add first(Intermediaire where(first(wareKept).location = each.location)) to: placeVisited;
+						loop tempWare over: tempWares{
+							Intermediaire placeWare <- first(Intermediaire where(tempWare.location = each.location));
+							if not (placeVisited contains placeWare){
+								add tempWare to: wareKept;
+								add placeWare to: placeVisited;
+							}
 						}
+						polyChange.shape <- polygon(wareKept);
 					}
-					polyChange.shape <- polygon(wareKept);
 				} else {
 					create PolygonWare number: 1{
 					placeProd <- tempProd;

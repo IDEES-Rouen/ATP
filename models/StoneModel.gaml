@@ -24,7 +24,7 @@ global schedules: shuffle(Consommateur) + shuffle(Intermediaire) + shuffle(March
 	int stock_max_prod <- 10 parameter: true;
 	int stock_max_prod_fixe <- 100 parameter: true;
 	
-	int consumer_strategy <- 1 parameter: true min: 1 max: 2; //1:buy to producers and intermediries. 2:only buy to inermediairies.
+	int consumer_strategy <- 1 parameter: true min: 1 max: 2; //1:buy to producers and intermediaries. 2:only buy to inermediairies.
 	int intermediary_strategy <- 1 parameter: true min:1 max: 3; //1: buy the stock. 2: buy stock and place orders. 3: only place orders.
 	int producer_strategy <- 1 parameter: true min: 1 max: 2; //1: produce just what has been oredered. 2: produce the maximum it can
 	
@@ -154,18 +154,20 @@ global schedules: shuffle(Consommateur) + shuffle(Intermediaire) + shuffle(March
 				if(exists){
 					PolygonWare polyChange <- PolygonWare first_with (each.placeProd=tempProd);
 					list<Marchandise> tempWares <- Marchandise where (each.lieuProd = tempProd);
-					list<Marchandise> wareKept;
-					add first(tempWares) to: wareKept;
-					list<Intermediaire> placeVisited;
-					add first(Intermediaire where(first(wareKept).location = each.location)) to: placeVisited;
-					loop tempWare over: tempWares{
-						Intermediaire placeWare <- first(Intermediaire where(tempWare.location = each.location));
-						if not (placeVisited contains placeWare){
-							add tempWare to: wareKept;
-							add placeWare to: placeVisited;
+					if not empty(tempWares){
+						list<Marchandise> wareKept;
+						add first(tempWares) to: wareKept;
+						list<Intermediaire> placeVisited;
+						add first(Intermediaire where(first(wareKept).location = each.location)) to: placeVisited;
+						loop tempWare over: tempWares{
+							Intermediaire placeWare <- first(Intermediaire where(tempWare.location = each.location));
+							if not (placeVisited contains placeWare){
+								add tempWare to: wareKept;
+								add placeWare to: placeVisited;
+							}
 						}
+						polyChange.shape <- polygon(wareKept);
 					}
-					polyChange.shape <- polygon(wareKept);
 				} else {
 					create PolygonWare number: 1{
 					placeProd <- tempProd;
@@ -230,43 +232,23 @@ species Consommateur {
 	}
 	
 	//TODO ajouter l'argent dans le calcul
-	//operateur sort pour ranger dans l'ordre de distance, ou alors on fait un calcul du prix pour chaque, puis on trie en fonction du prix, stocké dans un ou deux tableaux (arrays)
-	reflex acheter when: not est_construit{ //on achète à tous les intermédiaires qui ne sont pas des consommateurs
-//		do achat0;
-		do achat1; //à remplacer en fonction de la méthode que l'on veut tester
-//		do achat2;
-	}
-	
-	action achat0{
-		//choix aléatoire, quelques soit la distance, etc (utiliser le shuffle). Utilisé comm comparateur de base.
-		loop tempInt over: shuffle(Intermediaire where (not(each.est_consommateur))){
-			if (recupere<besoin){
-				int recupTemp;
-				recupTemp <- min(besoin,tempInt.stock);
-				recupere <- recupere+recupTemp;
-				if(tempInt.est_producteur){
-					write "achat prod " + recupTemp;
-				} else {
-					write "achat inter " + recupTemp;
-				}
-				ask tempInt{
-					stock <- stock - recupTemp;
-				}
-			}
+	reflex acheter when: not est_construit{
+		if(consumer_strategy=1){
+			do achat1;
 		}
-		mon_inter.capacite <- besoin;
-		mon_inter.stock <- recupere;
+		if(consumer_strategy=2){
+			do achat2;
+		}
 	}
 	
-	action achat1 { //Achat du maximum (en quantité) en fonction de la distance, sans pénalité rajoutée par les intermédiaires.
-	//Si l'achat a lieu chez un producteur, le producteur crée sa production à ce moment.
+	action achat1 {
 		list<Intermediaire> temp <- Intermediaire where (not(each.est_consommateur));
 		temp <- temp sort_by(each distance_to self);
 		loop tempInt over: temp{
 			if (recupere<besoin){
 				int recupTemp;
 				if(tempInt.est_producteur){
-				recupTemp <- min(besoin,tempInt.stock);
+				recupTemp <- min(besoin,tempInt.mon_prod.stockMax-tempInt.mon_prod.production);
 				recupere <- recupere+recupTemp;
 				if(recupTemp>0){
 						write "achat prod " + recupTemp;
@@ -277,7 +259,7 @@ species Consommateur {
 							target <- myself.location;
 							distance <- myself distance_to tempInt.mon_prod;
 						}
-						tempInt.stock <- tempInt.stock - recupTemp;
+						//tempInt.stock <- tempInt.stock - recupTemp;
 						tempInt.mon_prod.production <- tempInt.mon_prod.production + recupTemp;
 					}
 				} else {
@@ -319,7 +301,53 @@ species Consommateur {
 		mon_inter.stock <- recupere;
 	}
 	
-	//un carré de couleur dont la taille peut varier en foction d'un paramètre (le besoin, l'argent, etc ?)
+	action achat2{
+		list<Intermediaire> temp <- Intermediaire where (not(each.est_consommateur));
+		temp <- temp sort_by(each distance_to self);
+		loop tempInt over: temp{
+			if (recupere<besoin){
+				int recupTemp;
+				if (not(tempInt.est_producteur)and not(tempInt.est_consommateur)){
+				recupTemp <- min(besoin,tempInt.stock);
+				recupere <- recupere+recupTemp;
+				if(recupTemp>0){
+						write "achat inter " + recupTemp;
+						list<Marchandise> tempWares <- Marchandise where(each.location = tempInt.location);
+						bool endCollecting <- false;
+						int recupWare<-0;
+						loop tempLoop over: tempWares{
+							if(not endCollecting){
+								if (recupWare+tempLoop.quantity <= recupTemp) {
+									recupWare <- recupWare + tempLoop.quantity;
+									tempLoop.target <- self.location;
+									tempLoop.distance <- tempLoop.distance + tempLoop distance_to self;
+								} else {
+									create Marchandise number: 1{
+										quantity <- recupTemp-recupWare;
+										target <- myself.location;
+										distance <- tempLoop.distance + self distance_to myself;
+										provenance <- tempLoop.provenance;
+										lieuProd <- tempLoop.lieuProd;
+									}
+									tempLoop.quantity <- tempLoop.quantity - (recupTemp-recupWare);
+									recupWare <- recupTemp;
+								}
+								if(recupWare >= recupTemp){
+									endCollecting <- true;
+								}
+							}
+						}
+					}
+					ask tempInt{
+						stock <- stock - recupTemp;
+					}	
+				}
+			}
+		}
+		mon_inter.capacite <- besoin;
+		mon_inter.stock <- recupere;
+	}
+	
 	aspect base {
 		draw square(10) color:#blue;
 	}
@@ -336,6 +364,119 @@ species Intermediaire {
 	bool est_consommateur; //représente la partie commeriale d'un consommateur
 	Consommateur mon_conso;
 	int argent;
+	
+	reflex buy {
+		if intermediary_strategy=1 {
+			do achat1;
+		}
+		if intermediary_strategy=2{
+			do achat2;
+		}
+		if intermediary_strategy=3{
+			do achat3;
+		}
+	}
+	
+	action achat1 { //achat comme un conso
+		int recupere <- 0;
+		list<Intermediaire> temp <- Intermediaire where (not(each.est_consommateur));
+		temp <- temp sort_by(each distance_to self);
+		loop tempInt over: temp{
+			if (stock<capacite){
+				int recupTemp;
+				if(tempInt.est_producteur){
+				recupTemp <- min(capacite,tempInt.stock);
+				recupere <- recupere+recupTemp;
+				if(recupTemp>0){
+						write "achat prod " + recupTemp;
+						create Marchandise number: 1{
+							lieuProd <- tempInt.mon_prod;
+							provenance <- tempInt;
+							quantity <- recupTemp;
+							target <- myself.location;
+							distance <- myself distance_to tempInt.mon_prod;
+						}
+						tempInt.stock <- tempInt.stock - recupTemp;
+						//tempInt.mon_prod.production <- tempInt.mon_prod.production + recupTemp;
+					}
+				}
+			}
+		}
+		stock <- recupere;
+	}
+	
+	action achat2 { //achat comme un conso + stock
+		int recupere <- 0;
+		list<Intermediaire> temp <- Intermediaire where (not(each.est_consommateur));
+		temp <- temp sort_by(each distance_to self);
+		loop tempInt over: temp{
+			if (stock<capacite){
+				int recupTemp;
+				if(tempInt.est_producteur){
+				recupTemp <- min(capacite,tempInt.stock); //on achête en priorité le stock
+				recupere <- recupere+recupTemp;
+				stock <- recupere;
+				}
+				if(recupTemp>0){
+						write "achat prod " + recupTemp;
+						create Marchandise number: 1{
+							lieuProd <- tempInt.mon_prod;
+							provenance <- tempInt;
+							quantity <- recupTemp;
+							target <- myself.location;
+							distance <- myself distance_to tempInt.mon_prod;
+						}
+						tempInt.stock <- tempInt.stock - recupTemp;
+						//tempInt.mon_prod.production <- tempInt.mon_prod.production + recupTemp;
+					}
+				if (stock<capacite){
+				recupTemp <- min(capacite,tempInt.mon_prod.stockMax-tempInt.mon_prod.production);
+				recupere <- recupere+recupTemp;
+				if(recupTemp>0){
+						write "achat prod " + recupTemp;
+						create Marchandise number: 1{
+							lieuProd <- tempInt.mon_prod;
+							provenance <- tempInt;
+							quantity <- recupTemp;
+							target <- myself.location;
+							distance <- myself distance_to tempInt.mon_prod;
+						}
+						//tempInt.stock <- tempInt.stock - recupTemp;
+						tempInt.mon_prod.production <- tempInt.mon_prod.production + recupTemp;
+					}
+				}
+				stock <- recupere;
+			}
+		}
+	}
+	
+	action achat3 { //achat comme un conso
+		int recupere <- 0;
+		list<Intermediaire> temp <- Intermediaire where (not(each.est_consommateur));
+		temp <- temp sort_by(each distance_to self);
+		loop tempInt over: temp{
+			if (stock<capacite){
+				int recupTemp;
+				if(tempInt.est_producteur){
+				recupTemp <- min(capacite,tempInt.mon_prod.stockMax-tempInt.mon_prod.production);
+				recupere <- recupere+recupTemp;
+				if(recupTemp>0){
+						write "achat prod " + recupTemp;
+						create Marchandise number: 1{
+							lieuProd <- tempInt.mon_prod;
+							provenance <- tempInt;
+							quantity <- recupTemp;
+							target <- myself.location;
+							distance <- myself distance_to tempInt.mon_prod;
+						}
+						//tempInt.stock <- tempInt.stock - recupTemp;
+						tempInt.mon_prod.production <- tempInt.mon_prod.production + recupTemp;
+					}
+				}
+			}
+		}
+		stock <- recupere;
+	}
 	
 	aspect base {
 		if(not(est_producteur) and not(est_consommateur)){
@@ -356,87 +497,21 @@ species Producteur{
 	Intermediaire mon_inter;
 	
 	reflex produit {
-		stock <- stockMax;
-		productionBefore <- production;
-		production <- 0;
+		if producer_strategy=1{
+			productionBefore <- production;
+			production <- 0;
+			stock <- 0;
+		}
+		if producer_strategy=2{
+			productionBefore <- production;
+			production <- 0;
+			stock <- stockMax-productionBefore;
+		}
 	}
 	
 	reflex updateInter{
-		//Ici, le stock de l'itermédiaire représente ce qu'il reste à vendre ur un cycle.
+		//Ici, le stock de l'itermédiaire représente le surplus produit au cycle précédent
 		mon_inter.stock<-stock;
-	}
-	
-//	reflex vendre { //on vend à tous les intermédiaires qui ne sont pas des producteurs
-//		if(mon_inter.stock>0){
-////			do vente0;
-//			do vente1;
-////			do vente2;
-//		}
-//	}
-	
-	action vente0{
-		//choix aléatoire, quelques soit la distance, etc (utiliser le shuffle). Utilisé comm comparateur de base.
-		loop tempInt over: shuffle(Intermediaire where not(each.est_producteur)){
-				if(stock>0){
-					ask tempInt{
-						if(stock<capacite and myself.stock>0){
-						int echange <- min(capacite-stock,myself.stock);
-						stock <- stock + echange;
-						myself.stock <- myself.stock-echange;
-							if(self.est_consommateur){
-								write "vente conso " + self + " " + echange;
-							} else {
-								write "vente inter " + self + " " + echange;
-							}
-						}
-					}
-				}
-			}
-			mon_inter.stock <- stock;
-	}
-	
-	action vente1{ //vente du maximum (en qantité) au plus proche
-		list<Intermediaire> temp <- (Intermediaire where not(each.est_producteur));
-		temp <- temp sort_by(each distance_to self); //On peut mettre des expressions dans le sort_by.
-		loop tempInt over: temp{
-				if(stock>0){
-					ask tempInt{
-						if(stock<capacite and myself.stock>0){
-						int echange <- min(capacite-stock,myself.stock);
-						stock <- stock + echange;
-						myself.stock <- myself.stock-echange;
-							if(self.est_consommateur){
-								write "vente conso " + self + " " + echange;
-							} else {
-								write "vente inter " + self + " " + echange;
-							}
-						}
-					}
-				}
-			}
-			mon_inter.stock <- stock;
-	}
-	
-	action vente2{ //Vente au plus loin
-		list<Intermediaire> temp <- (Intermediaire where not(each.est_producteur));
-		temp <- temp sort_by(1/each distance_to self); //On peut mettre des expressions dans le sort_by.
-		loop tempInt over: temp{
-				if(stock>0){
-					ask tempInt{
-						if(stock<capacite and myself.stock>0){
-						int echange <- min(capacite-stock,myself.stock);
-						stock <- stock + echange;
-						myself.stock <- myself.stock-echange;
-							if(self.est_consommateur){
-								write "vente conso " + self + " " + echange;
-							} else {
-								write "vente inter " + self + " " + echange;
-							}
-						}
-					}
-				}
-			}
-			mon_inter.stock <- stock;
 	}
 	
 	aspect base {
