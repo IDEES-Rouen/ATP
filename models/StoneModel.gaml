@@ -211,7 +211,7 @@ global schedules: shuffle(Consommateur) + shuffle(Intermediaire) + shuffle(March
 species Consommateur {
 	//TODO //diversifier en fonction des types et ajouter la variable d'argent.
 	int argent;
-	int besoin <- consumTauxFixe + rnd(consumTaux) ;//update:consumTauxFixe + rnd(consumTaux) ; //dans le cade de la craie, le besoin serait fixe et représenterait le besoin total de la construction 
+	int besoin <- consumTauxFixe + rnd(consumTaux) ;
 	int recupere <- 0 ;
 	Intermediaire mon_inter; 
 	
@@ -355,7 +355,6 @@ species Consommateur {
 
 //Dans un premier temps, chaque intermédiaire est spécialisé dans un seul type, sauf les consommateurs qui auront les deux types (commun et supérieurs)
 species Intermediaire {
-	//un disque dont la taille varie en fonction du stock
 	int stock <- 0;
 	int capacite <- rnd(capaciteInter); //capacite d'achat auprès des producteurs
 	int prix <- 0; //représente la pénalité ajoutée par l'intermédiaire.
