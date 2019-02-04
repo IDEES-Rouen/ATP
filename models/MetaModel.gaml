@@ -9,7 +9,7 @@ model MetaModel
 
 global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + shuffle(Producer){
 	int nb_init_Consumer <- 2 parameter: true;
-	int nb_init_Intermediary <- 1 parameter: true; //correspond aux intermédiaires hors Producer et Consumer
+	int nb_init_Intermediary <- 1 parameter: true;
 	int nb_init_prod <- 2 parameter: true;
 	geometry shape <- square(200/*0*/);
 	float averageDistance <- 0.0;
@@ -29,15 +29,15 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 		do createInter(nb_init_Intermediary);
 	}
 	
-	user_command "create consum"{ //à activer avec clic-droit->world->actions
+	user_command "create consum"{
 		do createConsum(1);
 	}
 	
 	user_command "destroy consum"{
-		do destroyConso;
+		do destroyConsum;
 	}
 	
-	user_command "create prod"{ //à activer avec clic-droit->world->actions
+	user_command "create prod"{
 		do createProd(1);
 	}
 	
@@ -45,7 +45,7 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 		do destroyProd;
 	}
 	
-	user_command "create inter"{ //à activer avec clic-droit->world->actions
+	user_command "create inter"{
 		do createInter(1);
 	}
 	
@@ -53,9 +53,8 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 		do destroyInter;
 	}
 	
-	action createConsum(int nb_conso){
-		create Consumer number: nb_conso{
-			//pour chaque Consumer, on lui crée un intermédiaire qui sera sa partie commerciale
+	action createConsum(int nb_consum){
+		create Consumer number: nb_consum{
 			create Intermediary number: 1{
 				location <-myself.location;
 				is_Consumer <- true;
@@ -73,7 +72,7 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 		}
 	}
 	
-	action destroyConso{
+	action destroyConsum{
 		ask one_of(Consumer){
 			do die ;
 		}
@@ -81,7 +80,6 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 	
 	action createProd(int nb_prod){
 		create Producer number: nb_prod{
-			//pour chaque Producer, on lui crée un intermédiaire qui sera sa partie commerciale
 			create Intermediary number: 1{
 				location <-myself.location;
 				is_Consumer <- false;
@@ -120,7 +118,6 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 		}
 	}
 	
-	//TODO : faire la même chose mais pour chaque intermédiaire ?
 	reflex displayReflex {
 		write "-------------------------";
 		averageDistance <- 0.0;
@@ -185,7 +182,7 @@ species Consumer {
 	int collect <- 0 update: 0; //dans le cade de la craie, les matières récupérées ne seraient pas remise à zéro à chaque tour (cette remise à zéro symbolise la consommation)
 	Intermediary my_inter; 
 	
-	bool est_construit; //utilisé sur les bâtiments pour montrer que le batiment n'a plus need de pierre.
+	bool is_built; //utilisé sur les bâtiments pour montrer que le batiment n'a plus need de pierre.
 	
 	reflex updateInterStart{
 		my_inter.capacity <- need;
