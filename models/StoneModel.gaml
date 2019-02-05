@@ -28,13 +28,14 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 	int intermediary_strategy <- 1 parameter: true min:1 max: 3; //1: buy the stock. 2: buy stock and place orders. 3: only place orders.
 	int producer_strategy <- 1 parameter: true min: 1 max: 2; //1: produce just what has been oredered. 2: produce the maximum it can
 	
+	//TODO : create consumers, intermediaries and producers with different types and different money/price
 	init {
 		do createConsum(nb_init_Consumer);
 		do createProd(nb_init_prod);
 		do createInter(nb_init_Intermediary);
 	}
 	
-	user_command "create consum"{ //à activer avec clic-droit->world->actions
+	user_command "create consum"{
 		do createConsum(1);
 	}
 	
@@ -42,7 +43,7 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 		do destroyConsum;
 	}
 	
-	user_command "create prod"{ //à activer avec clic-droit->world->actions
+	user_command "create prod"{
 		do createProd(1);
 	}
 	
@@ -50,7 +51,7 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 		do destroyProd;
 	}
 	
-	user_command "create inter"{ //à activer avec clic-droit->world->actions
+	user_command "create inter"{
 		do createInter(1);
 	}
 	
@@ -123,7 +124,7 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 		}
 	}
 	
-	//TODO : faire la même chose mais pour chaque intermédiaire
+	//TODO : display area for ware going through intermediaries ?
 	reflex displayReflex {
 		write "-------------------------";
 		averageDistance <- 0.0;
@@ -182,7 +183,7 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 	reflex stop{
 		bool isFinished <- true;
 		loop tempConso over: Consumer{
-			if not (tempConso.est_construit){
+			if not (tempConso.is_built){
 				isFinished <- false;
 			}
 		}
@@ -215,7 +216,7 @@ species Consumer {
 	int collect <- 0 ;
 	Intermediary my_inter; 
 	
-	bool est_construit<-false;
+	bool is_built<-false;
 	int time_to_be_built <- 0;
 	
 	reflex updateInterStart{
@@ -223,16 +224,16 @@ species Consumer {
 		my_inter.stock <- collect;
 	}
 	
-	reflex updateConstruit when:not est_construit{
+	reflex updateConstruit when:not is_built{
 		if(collect>=need){
-			est_construit <- true;
+			is_built <- true;
 			write self.name + " est construit";
 		}
 		time_to_be_built <- time_to_be_built +1;
 	}
 	
-	//TODO ajouter l'money dans le calcul
-	reflex acheter when: not est_construit{
+	//TODO add money in the computation
+	reflex buying when: not is_built{
 		if(consumer_strategy=1){
 			do buy1;
 		}
@@ -363,7 +364,7 @@ species Intermediary {
 	Consumer my_consum;
 	int money;
 	
-	reflex buy {
+	reflex buying {
 		if intermediary_strategy=1 {
 			do buy1;
 		}
