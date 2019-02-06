@@ -376,7 +376,7 @@ species Intermediary {
 		}
 	}
 	
-	action buy1 { //buy as a consumer
+	action buy1 { //buy only extra production
 		int collect <- 0;
 		list<Intermediary> temp <- Intermediary where (not(each.is_Consumer));
 		temp <- temp sort_by(each distance_to self);
@@ -412,36 +412,37 @@ species Intermediary {
 			if (stock<capacity){
 				int collectTemp;
 				if(tempInt.is_Producer){
-				collectTemp <- min(capacity,tempInt.stock); //on achête en priorité le stock
-				collect <- collect+collectTemp;
-				stock <- collect;
-				}
-				if(collectTemp>0){
-						write "buy prod " + collectTemp;
-						create Ware number: 1{
-							prodPlace <- tempInt.my_prod;
-							origin <- tempInt;
-							quantity <- collectTemp;
-							target <- myself.location;
-							distance <- myself distance_to tempInt.my_prod;
+					collectTemp <- min(capacity,tempInt.stock); //buying extra production in priority
+					collect <- collect+collectTemp;
+					stock <- collect;
+					
+					if(collectTemp>0){
+							write "buy prod " + collectTemp;
+							create Ware number: 1{
+								prodPlace <- tempInt.my_prod;
+								origin <- tempInt;
+								quantity <- collectTemp;
+								target <- myself.location;
+								distance <- myself distance_to tempInt.my_prod;
+							}
+							tempInt.stock <- tempInt.stock - collectTemp;
+							//tempInt.my_prod.production <- tempInt.my_prod.production + collectTemp;
 						}
-						tempInt.stock <- tempInt.stock - collectTemp;
-						//tempInt.my_prod.production <- tempInt.my_prod.production + collectTemp;
-					}
-				if (stock<capacity){
-				collectTemp <- min(capacity,tempInt.my_prod.stockMax-tempInt.my_prod.production);
-				collect <- collect+collectTemp;
-				if(collectTemp>0){
-						write "buy prod " + collectTemp;
-						create Ware number: 1{
-							prodPlace <- tempInt.my_prod;
-							origin <- tempInt;
-							quantity <- collectTemp;
-							target <- myself.location;
-							distance <- myself distance_to tempInt.my_prod;
+					if (stock<capacity){
+					collectTemp <- min(capacity,tempInt.my_prod.stockMax-tempInt.my_prod.production);
+					collect <- collect+collectTemp;
+					if(collectTemp>0){
+							write "buy prod " + collectTemp;
+							create Ware number: 1{
+								prodPlace <- tempInt.my_prod;
+								origin <- tempInt;
+								quantity <- collectTemp;
+								target <- myself.location;
+								distance <- myself distance_to tempInt.my_prod;
+							}
+							//tempInt.stock <- tempInt.stock - collectTemp;
+							tempInt.my_prod.production <- tempInt.my_prod.production + collectTemp;
 						}
-						//tempInt.stock <- tempInt.stock - collectTemp;
-						tempInt.my_prod.production <- tempInt.my_prod.production + collectTemp;
 					}
 				}
 				stock <- collect;
