@@ -23,6 +23,7 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 	int capacityInter <- 30 parameter: true;
 	int stock_max_prod <- 10 parameter: true;
 	int stock_max_prod_fixe <- 100 parameter: true;
+	float init_price <- 100.0 parameter: true;
 	
 	int consumer_strategy <- 1 parameter: true min: 1 max: 2; //1:buy to producers and intermediaries. 2:only buy to inermediairies.
 	int intermediary_strategy <- 1 parameter: true min:1 max: 3; //1: buy the stock. 2: buy stock and place orders. 3: only place orders.
@@ -115,6 +116,7 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 			is_Consumer <- false;
 			my_consum <- nil;
 			capacity <- rnd(capacityInter);
+			price <- init_price;
 		}
 	}
 	
@@ -244,7 +246,7 @@ species Consumer {
 	
 	action buy1 {
 		list<Intermediary> temp <- Intermediary where (not(each.is_Consumer));
-		temp <- temp sort_by(each distance_to self);
+		temp <- temp sort_by((each distance_to self) + each.price);
 		loop tempInt over: temp{
 			if (collect<need){
 				int collectTemp;
@@ -264,6 +266,8 @@ species Consumer {
 						tempInt.my_prod.production <- tempInt.my_prod.production + collectTemp;
 					}
 				} else {
+					collectTemp <- min(need,tempInt.stock);
+					collect <- collect+collectTemp;
 					if(collectTemp>0){
 						write "buy inter " + collectTemp;
 						list<Ware> tempWares <- Ware where(each.location = tempInt.location);
@@ -304,7 +308,7 @@ species Consumer {
 	
 	action buy2{
 		list<Intermediary> temp <- Intermediary where (not(each.is_Consumer));
-		temp <- temp sort_by(each distance_to self);
+		temp <- temp sort_by((each distance_to self) + each.price);
 		loop tempInt over: temp{
 			if (collect<need){
 				int collectTemp;
@@ -357,14 +361,14 @@ species Consumer {
 species Intermediary {
 	int stock <- 0;
 	int capacity <- rnd(capacityInter);
-	int prix <- 0; 
+	float price <- 0.0; 
 	bool is_Producer; 
 	Producer my_prod;
 	bool is_Consumer;
 	Consumer my_consum;
 	int money;
 	
-	reflex buying {
+	reflex buying when: not is_Producer and not is_Consumer {
 		if intermediary_strategy=1 {
 			do buy1;
 		}
@@ -381,13 +385,13 @@ species Intermediary {
 		list<Intermediary> temp <- Intermediary where (not(each.is_Consumer));
 		temp <- temp sort_by(each distance_to self);
 		loop tempInt over: temp{
-			if (stock<capacity){
+			if (stock<capacity and collect<capacity){
 				int collectTemp;
 				if(tempInt.is_Producer){
-				collectTemp <- min(capacity,tempInt.stock);
+				collectTemp <- min(capacity-stock,min(capacity,tempInt.stock));
 				collect <- collect+collectTemp;
 				if(collectTemp>0){
-						write "buy prod " + collectTemp;
+						write name + " buy prod " + collectTemp;
 						create Ware number: 1{
 							prodPlace <- tempInt.my_prod;
 							origin <- tempInt;
@@ -397,11 +401,11 @@ species Intermediary {
 						}
 						tempInt.stock <- tempInt.stock - collectTemp;
 						//tempInt.my_prod.production <- tempInt.my_prod.production + collectTemp;
+						stock <- collect;
 					}
 				}
 			}
 		}
-		stock <- collect;
 	}
 	
 	action buy2 { //buy as a consumer + extra production
@@ -409,7 +413,7 @@ species Intermediary {
 		list<Intermediary> temp <- Intermediary where (not(each.is_Consumer));
 		temp <- temp sort_by(each distance_to self);
 		loop tempInt over: temp{
-			if (stock<capacity){
+			if (stock<capacity and collect<capacity){
 				int collectTemp;
 				if(tempInt.is_Producer){
 					collectTemp <- min(capacity,tempInt.stock); //buying extra production in priority
@@ -583,10 +587,16 @@ experiment Spreading type: gui {
 		}
 	
 		display "production information" {
-			chart "production information" type:histogram
+			chart "production information" type:histogram size: {0.5,1} position: {0, 0}
 			{
 				loop tempProd over: Producer {
 					data tempProd.name value: tempProd.productionBefore;
+				}
+			}
+			chart "stock information" type:histogram size: {0.5,1} position: {0.5, 0}
+			{
+				loop tempProd over: Producer {
+					data tempProd.name value: tempProd.stock;
 				}
 			}
 		} 

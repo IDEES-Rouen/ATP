@@ -22,6 +22,7 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 	int capacityInter <- 30 parameter: true;
 	int stock_max_prod <- 10 parameter: true;
 	int stock_max_prod_fixe <- 100 parameter: true;
+	float init_price <- 100.0 parameter: true;
 	
 	init {
 		do createConsum(nb_init_Consumer);
@@ -109,6 +110,7 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 			is_Consumer <- false;
 			my_consum <- nil;
 			capacity <- rnd(capacityInter);
+			price <- init_price;
 		}
 	}
 	
@@ -176,28 +178,27 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 }
 
 species Consumer {
-	//TODO //diversifier en fonction des types et ajouter la variable d'money.
+	//TODO //diversify with types and money
 	int money;
-	int need <- consumRateFixed + rnd(consumRate) update:consumRateFixed + rnd(consumRate) ; //dans le cade de la craie, le need serait fixe et représenterait le need total de la construction 
-	int collect <- 0 update: 0; //dans le cade de la craie, les matières récupérées ne seraient pas remise à zéro à chaque tour (cette remise à zéro symbolise la consommation)
+	int need <- consumRateFixed + rnd(consumRate) update:consumRateFixed + rnd(consumRate) ; //in the stone case, need represents a total need (it is not updated).
+	int collect <- 0 update: 0; //the update to 0 represent the consumption of all that has been collected.
 	Intermediary my_inter; 
 	
-	bool is_built; //utilisé sur les bâtiments pour montrer que le batiment n'a plus need de pierre.
+	bool is_built; //used to stop the collect
 	
 	reflex updateInterStart{
 		my_inter.capacity <- need;
 		my_inter.stock <- collect;
 	}
 	
-	//TODO add money in the computation
-	reflex buying { //on achète à tous les intermédiaires qui ne sont pas des Consumers
+	reflex buying { //buying to all the intermediairies which are not consumer
 //		do buy0;
-		do buy1; //à remplacer en fonction de la méthode que l'on veut tester
+		do buy1; //replace depending on the method tested
 //		do buy2;
 	}
 	
 	action buy0{
-		//choix aléatoire, quelques soit la distance, etc (utiliser le shuffle). Utilisé comm comparateur de base.
+		//random choice
 		loop tempInt over: shuffle(Intermediary where (not(each.is_Consumer))){
 			if (collect<need){
 				int collectTemp;
@@ -217,9 +218,9 @@ species Consumer {
 		my_inter.stock <- collect;
 	}
 	
-	action buy1 { //buy du maximum (en quantité) en fonction de la distance, sans pénalité rajoutée par les intermédiaires.
+	action buy1 { //buy the maximum in quantity, with a price added by intermediaries
 		list<Intermediary> temp <- Intermediary where (not(each.is_Consumer));
-		temp <- temp sort_by(each distance_to self); //Le distance_to s'applique sur la topologie de l'agent appelant (chaque espèce possède une topology comme built-in attribute sur laquelle il évolue)
+		temp <- temp sort_by((each distance_to self)+each.price); //distance_to is applied to the topology of the calling agent
 		loop tempInt over: temp{
 			if (collect<need){
 				int collectTemp;
@@ -273,8 +274,7 @@ species Consumer {
 		my_inter.stock <- collect;
 	}
 	
-	//TODO : préparer l'ajout d'un price ou le calcul d'une autre distance (ou les deux)
-	action buy2{ // buy au plus loin
+	action buy2{ // buy to the farthest
 		list<Intermediary> temp <- Intermediary where (not(each.is_Consumer));
 		temp <- temp sort_by(1/each distance_to self); //On peut mettre des expressions dans le sort_by.
 		loop tempInt over: temp{
@@ -296,25 +296,21 @@ species Consumer {
 		my_inter.stock <- collect;
 	}
 	
-	//un carré de couleur dont la taille peut varier en foction d'un paramètre (le need, l'money, etc ?)
 	aspect base {
 		draw square(10) color:#blue;
 	}
 }
 
-//Dans un premier temps, chaque intermédiaire est spécialisé dans un seul type, sauf les Consumers qui auront les deux types (commun et supérieurs)
 species Intermediary {
 	int stock <- 0;
 	int capacity <- rnd(capacityInter);
-	int price <- 0;
+	float price <- 0.0;
 	bool is_Producer;
 	Producer my_prod;
 	bool is_Consumer;
 	Consumer my_consum;
 	int money;
-	
-	//TODO : ajouter la capacité d'buy des intermédiaires, dans un cas de figure.
-	
+		
 	aspect base {
 		if(not(is_Producer) and not(is_Consumer)){
 			if (stock>0){
@@ -340,7 +336,7 @@ species Producer{
 		my_inter.stock<-stock;
 	}
 	
-	reflex selling { //on vend à tous les intermédiaires qui ne sont pas des Producers
+	reflex selling { //selling to all intermediaries not producer
 		if(my_inter.stock>0){
 //			do sell0;
 			do sell1;
@@ -349,7 +345,7 @@ species Producer{
 	}
 	
 	action sell0{
-		//choix aléatoire, quelques soit la distance, etc (utiliser le shuffle). Utilisé comm comparateur de base.
+		//random choice
 		loop tempInt over: shuffle(Intermediary where not(each.is_Producer)){
 				if(stock>0){
 					ask tempInt{
@@ -369,9 +365,9 @@ species Producer{
 			my_inter.stock <- stock;
 	}
 	
-	action sell1{ //sell du maximum (en qantité) au plus proche
+	action sell1{ //sell the maximum to the closest
 		list<Intermediary> temp <- (Intermediary where not(each.is_Producer));
-		temp <- temp sort_by(each distance_to self); //On peut mettre des expressions dans le sort_by.
+		temp <- temp sort_by((each distance_to self) + each.price);
 		loop tempInt over: temp{
 				if(stock>0){
 						if(tempInt.stock<tempInt.capacity and /*myself.*/stock>0){
@@ -383,7 +379,6 @@ species Producer{
 							/*myself.*/stock <- /*myself.*/stock-exchange;
 								if(tempInt.is_Consumer){
 									write "sell consu " + tempInt + " " + exchange;
-									//on crée une Ware avec les bonnes données.
 									create Ware number: 1{
 										prodPlace <- myself;
 										origin <- myself.my_inter;
@@ -407,9 +402,9 @@ species Producer{
 			my_inter.stock <- stock;
 	}
 	
-	action sell2{ //sell au plus loin
+	action sell2{ //sell to the farthest
 		list<Intermediary> temp <- (Intermediary where not(each.is_Producer));
-		temp <- temp sort_by(1/each distance_to self); //On peut mettre des expressions dans le sort_by.
+		temp <- temp sort_by(1/each distance_to self); 
 		loop tempInt over: temp{
 				if(stock>0){
 					ask tempInt{
