@@ -7,19 +7,28 @@
 
 model StoneModel
 
-
+//TODO : prestigious act befor others, and priorities act before others
 global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + shuffle(Producer) {
-	int nb_init_Consumer <- 2 parameter: true;
-	int nb_init_Intermediary <- 1 parameter: true;
-	int nb_init_prod <- 2 parameter: true;
+	int nb_init_Consumer_prestigious <- 2 parameter: true;
+	int nb_init_Consumer_not_prestigious <- 2 parameter: true;
+	int nb_init_Intermediary_type1 <- 1 parameter: true;
+	int nb_init_Intermediary_type2 <- 1 parameter: true;
+	int nb_init_prod_type1 <- 2 parameter: true;
+	int nb_init_prod_type2 <- 2 parameter: true;
 	geometry shape <- square(200/*0*/);
 	float averageDistance <- 0.0;
 	float distanceMax <- 0.0;
 	float distanceMin <- 0.0;
+	int nb_prioritary_prestigeous<- 0 parameter:true;
+	int nb_prioritary_not_prestigeous<- 0 parameter:true;
 	int prodRate <- 5 parameter:true;
 	int prodRateFixed <- 50 parameter:true;
 	int consumRate <- 50 parameter:true;
 	int consumRateFixed <- 500 parameter:true;
+	float percentageType1Prestigeous <- 0.0 parameter: true;
+	float percentageType1NotPrestigeous <- 0.0 parameter: true;
+	float distanceMaxPrestigeous <- 0.0 parameter:true;
+	float distanceMaxNotPrestigeous <- 0.0 parameter:true;
 	int capacityInter <- 30 parameter: true;
 	int stock_max_prod <- 10 parameter: true;
 	int stock_max_prod_fixe <- 100 parameter: true;
@@ -31,13 +40,16 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 	
 	//TODO : create consumers, intermediaries and producers with different types and different money/price
 	init {
-		do createProd(nb_init_prod);
-		do createInter(nb_init_Intermediary);
-		do createConsum(nb_init_Consumer);
+		do createProd(nb_init_prod_type1,1);
+		do createProd(nb_init_prod_type1,2);
+		do createInter(nb_init_Intermediary_type1,1);
+		do createInter(nb_init_Intermediary_type1,2);
+		do createConsum(nb_init_Consumer_prestigious,true);
+		do createConsum(nb_init_Consumer_not_prestigious,false);
 	}
 	
 	user_command "create consum"{
-		do createConsum(1);
+		do createConsum(1,true);
 	}
 	
 	user_command "destroy consum"{
@@ -45,7 +57,7 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 	}
 	
 	user_command "create prod"{
-		do createProd(1);
+		do createProd(1,1);
 	}
 	
 	user_command "destroy prod"{
@@ -53,15 +65,16 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 	}
 	
 	user_command "create inter"{
-		do createInter(1);
+		do createInter(1,1);
 	}
 	
 	user_command "destroy inter"{
 		do destroyInter;
 	}
 	
-	action createConsum(int nb_conso){
+	action createConsum(int nb_conso, bool prestig){
 		create Consumer number: nb_conso{
+			prestigious <- prestig;
 			create Intermediary number: 1{
 				location <-myself.location;
 				is_Consumer <- true;
@@ -85,8 +98,9 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 		}
 	}
 	
-	action createProd(int nb_prod){
+	action createProd(int nb_prod, int typeProd){
 		create Producer number: nb_prod{
+			type<-typeProd;
 			create Intermediary number: 1{
 				location <-myself.location;
 				is_Consumer <- false;
@@ -95,6 +109,7 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 				my_prod <- myself;
 				capacity <- myself.stockMax;
 				stock <- myself.stock;
+				type<-typeProd;
 				
 				ask myself{
 					my_inter <- myself;
@@ -109,7 +124,7 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 		}
 	}
 	
-	action createInter(int nb_inter){
+	action createInter(int nb_inter, int typeStone){
 		create Intermediary number: nb_inter{
 			is_Producer <- false;
 			my_prod <- nil;
@@ -117,6 +132,7 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 			my_consum <- nil;
 			capacity <- rnd(capacityInter);
 			price <- init_price;
+			type <- typeStone;
 		}
 	}
 	
@@ -191,9 +207,12 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 }
 
 species Consumer {
-	//TODO //diversify with types of ware and use of "money"
+	//TODO :diversify with types of ware and use of "money"
 	int money;
+	bool prestigious;
+	bool priority;
 	int need <- consumRateFixed + rnd(consumRate) ;
+	int needType1; //is a percentage of the total need, depending if the consumer is prestigious.
 	int collect <- 0 ;
 	Intermediary my_inter; 
 	list<Ware> wareReceived <- nil;
@@ -343,7 +362,7 @@ species Consumer {
 	}
 	
 	aspect base {
-		draw square(10) color:#blue;
+		draw square(10) color: prestigious ? #darkblue : #blue;
 	}
 }
 
@@ -356,6 +375,7 @@ species Intermediary {
 	bool is_Consumer;
 	Consumer my_consum;
 	int money;
+	int type; //each intermediary is specialised in a type of stone
 	
 	reflex buying when: not is_Producer and not is_Consumer {
 		if intermediary_strategy=1 {
@@ -474,9 +494,9 @@ species Intermediary {
 	aspect base {
 		if(not(is_Producer) and not(is_Consumer)){
 			if (stock>0){
-				draw circle(stock) color:#green;
+				draw circle(stock) color:type=1 ? #darkgreen : #green;
 			} else {
-				draw circle(1) color:#green;
+				draw circle(1) color:type=1 ? #darkgreen : #green;
 			}	
 		}
 	}
@@ -487,6 +507,7 @@ species Producer{
 	int productionBefore;
 	int stock <- 0 ;
 	int stockMax <- stock_max_prod_fixe ;//+ rnd(stock_max_prod);
+	int type; //type 1 is superior to type 2;
 	Intermediary my_inter;
 	rgb color <- rgb(rnd(255),rnd(255),rnd(255));
 	
@@ -509,7 +530,7 @@ species Producer{
 	}
 	
 	aspect base {
-			draw triangle(10) color:#red;
+			draw triangle(10) color:type=1 ? #darkred : #red;
 	}
 }
 
