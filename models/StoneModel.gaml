@@ -31,9 +31,9 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 	
 	//TODO : create consumers, intermediaries and producers with different types and different money/price
 	init {
-		do createConsum(nb_init_Consumer);
 		do createProd(nb_init_prod);
 		do createInter(nb_init_Intermediary);
+		do createConsum(nb_init_Consumer);
 	}
 	
 	user_command "create consum"{
@@ -126,7 +126,6 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 		}
 	}
 	
-	//TODO : display area for ware going through intermediaries ?
 	reflex displayReflex {
 		write "-------------------------";
 		averageDistance <- 0.0;
@@ -147,35 +146,14 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 			averageDistance <- averageDistance/length(Ware);
 		}
 		if(not(empty(Ware))){
-			loop tempProd over: Producer{
-				bool exists <- false;
-				loop tempPoly over: PolygonWare{
-					if tempPoly.placeProd = tempProd {
-						exists <- true;
-					}
-				}
-				if(exists){
-					PolygonWare polyChange <- PolygonWare first_with (each.placeProd=tempProd);
-					list<Ware> tempWares <- Ware where (each.prodPlace = tempProd);
-					if not empty(tempWares){
-						list<Ware> wareKept;
-						add first(tempWares) to: wareKept;
-						list<Intermediary> placeVisited;
-						add first(Intermediary where(first(wareKept).location = each.location)) to: placeVisited;
-						loop tempWare over: tempWares{
-							Intermediary placeWare <- first(Intermediary where(tempWare.location = each.location));
-							if not (placeVisited contains placeWare){
-								add tempWare to: wareKept;
-								add placeWare to: placeVisited;
-							}
-						}
-						polyChange.shape <- polygon(wareKept);
-					}
-				} else {
-					create PolygonWare number: 1{
-					placeProd <- tempProd;
-					list<Ware> tempWares <- Ware where (each.prodPlace = tempProd);
-					shape <- /*convex_hull(*/polygon(tempWares)/*)*/;
+			loop tempConsum over: Consumer where not(each.is_built){
+				loop tempProd over: tempConsum.presenceProd.keys{
+					if ((tempProd !=nil) and bool(tempConsum.presenceProd[tempProd])){
+						create PolygonWare number: 1{
+							placeProd <- tempProd;
+							consumPlace <- tempConsum;
+							shape <- line([placeProd,consumPlace],150.0);
+						}	
 					}
 				}
 			}
@@ -205,6 +183,7 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 			write "Max time : " + builtTimeMax;
 			write "Average time : " + builtTimeAverage/length(Consumer);
 			write "Min time : " + builtTimeMin;
+			
 			do pause;
 		}
 	}
@@ -212,14 +191,22 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 }
 
 species Consumer {
-	//TODO //diversify with types of ware and use of money
+	//TODO //diversify with types of ware and use of "money"
 	int money;
 	int need <- consumRateFixed + rnd(consumRate) ;
 	int collect <- 0 ;
 	Intermediary my_inter; 
+	list<Ware> wareReceived <- nil;
+	map presenceProd;
 	
 	bool is_built<-false;
 	int time_to_be_built <- 0;
+	
+	init {
+		loop temp over: Producer{
+			add temp::false to:presenceProd;
+		}
+	}
 	
 	reflex updateInterStart{
 		my_inter.capacity <- need;
@@ -261,6 +248,7 @@ species Consumer {
 							quantity <- collectTemp;
 							target <- myself.location;
 							distance <- myself distance_to tempInt.my_prod;
+							put true at:self.prodPlace in: myself.presenceProd;
 						}
 						//tempInt.stock <- tempInt.stock - collectTemp;
 						tempInt.my_prod.production <- tempInt.my_prod.production + collectTemp;
@@ -286,6 +274,7 @@ species Consumer {
 										distance <- tempLoop.distance + self distance_to myself;
 										origin <- tempLoop.origin;
 										prodPlace <- tempLoop.prodPlace;
+										put true at:self.prodPlace in: myself.presenceProd;
 									}
 									tempLoop.quantity <- tempLoop.quantity - (collectTemp-recupWare);
 									recupWare <- collectTemp;
@@ -499,6 +488,7 @@ species Producer{
 	int stock <- 0 ;
 	int stockMax <- stock_max_prod_fixe ;//+ rnd(stock_max_prod);
 	Intermediary my_inter;
+	rgb color <- rgb(rnd(255),rnd(255),rnd(255));
 	
 	reflex produce {
 		if producer_strategy=1{
@@ -530,6 +520,7 @@ species Ware{
 	Producer prodPlace;
 	point target <- nil;
 	float distance;
+	bool isInPolygon <- false;
 	
 	reflex move when: target!=nil{
 		location <- target;
@@ -541,13 +532,18 @@ species Ware{
 	}
 }
 
-species PolygonWare { //Used to draw the polygon of wares depending on their place of production
+species PolygonWare { //Used to draw lines of wares depending on their place of production
 	Producer placeProd;
+	Consumer consumPlace;
 	geometry shape;
 	rgb color;
 	
-	init{
-		color<-rgb(rnd(255),rnd(255),rnd(255));
+	reflex coloring {
+		if placeProd!=nil{
+		color<-placeProd.color;
+		}else{
+			color <- #black;
+		}
 	}
 	
 	aspect base {
@@ -578,14 +574,18 @@ experiment Spreading type: gui {
 			species PolygonWare transparency: 0.5;
 		}
 
-		display chart /*refresh:every(10.0)*/  {
+		display second_display background: #lightgray {
+			species PolygonWare;
+		}
+
+		display distance /*refresh:every(10.0)*/  {
 			chart "distance of wares" type: series {
 				data "average distance" value: averageDistance color: #green;
 				data "distance max" value: distanceMax color: #red;
 				data "distance min" value:distanceMin color: #blue;
 			}
 		}
-	
+	//TODO : display percentage of producer per consumer
 		display "production information" {
 			chart "production information" type:histogram size: {0.5,1} position: {0, 0}
 			{
