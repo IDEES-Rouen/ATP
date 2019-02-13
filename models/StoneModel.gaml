@@ -19,16 +19,16 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 	float averageDistance <- 0.0;
 	float distanceMax <- 0.0;
 	float distanceMin <- 0.0;
-	int nb_prioritary_prestigeous<- 0 parameter:true;
-	int nb_prioritary_not_prestigeous<- 0 parameter:true;
+	int nb_prioritary_prestigeous<- 1 parameter:true;
+	int nb_prioritary_not_prestigeous<- 1 parameter:true;
 	int prodRate <- 5 parameter:true;
 	int prodRateFixed <- 50 parameter:true;
 	int consumRate <- 50 parameter:true;
 	int consumRateFixed <- 500 parameter:true;
-	float percentageType1Prestigeous <- 0.0 parameter: true;
-	float percentageType1NotPrestigeous <- 0.0 parameter: true;
-	float distanceMaxPrestigeous <- 0.0 parameter:true;
-	float distanceMaxNotPrestigeous <- 0.0 parameter:true;
+	float percentageType1Prestigeous <- 0.0 parameter: true; //between 0 and 1
+	float percentageType1NotPrestigeous <- 0.0 parameter: true; //between 0 and 1
+	float distanceMaxPrestigeous <- 1000.0 parameter:true;
+	float distanceMaxNotPrestigeous <- 100.0 parameter:true;
 	int capacityInter <- 30 parameter: true;
 	int stock_max_prod <- 10 parameter: true;
 	int stock_max_prod_fixe <- 100 parameter: true;
@@ -38,7 +38,6 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 	int intermediary_strategy <- 1 parameter: true min:1 max: 3; //1: buy the stock. 2: buy stock and place orders. 3: only place orders.
 	int producer_strategy <- 1 parameter: true min: 1 max: 2; //1: produce just what has been oredered. 2: produce the maximum it can
 	
-	//TODO : create consumers, intermediaries and producers with different types and different money/price
 	init {
 		do createProd(nb_init_prod_type1,1);
 		do createProd(nb_init_prod_type1,2);
@@ -46,6 +45,12 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 		do createInter(nb_init_Intermediary_type1,2);
 		do createConsum(nb_init_Consumer_prestigious,true);
 		do createConsum(nb_init_Consumer_not_prestigious,false);
+		ask nb_prioritary_prestigeous among Consumer where each.prestigious {
+			priority <- true;
+		}
+		ask nb_prioritary_not_prestigeous among Consumer where not each.prestigious {
+			priority <- true;
+		}
 	}
 	
 	user_command "create consum"{
@@ -75,6 +80,7 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 	action createConsum(int nb_conso, bool prestig){
 		create Consumer number: nb_conso{
 			prestigious <- prestig;
+			do initialisation;
 			create Intermediary number: 1{
 				location <-myself.location;
 				is_Consumer <- true;
@@ -140,6 +146,11 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 		ask one_of(Intermediary where ((not(each.is_Producer)) and (not(each.is_Consumer)))){
 			do die ;
 		}
+	}
+	
+	action avec_retour{
+		//Retourner la liste des agents dans l'ordre d'éxécution.
+		return 1;
 	}
 	
 	reflex displayReflex {
@@ -214,16 +225,45 @@ species Consumer {
 	int need <- consumRateFixed + rnd(consumRate) ;
 	int needType1; //is a percentage of the total need, depending if the consumer is prestigious.
 	int collect <- 0 ;
+	int collectype1 <-0;
 	Intermediary my_inter; 
 	list<Ware> wareReceived <- nil;
 	map presenceProd;
+	map probabilitiesProd; //associating each prod of type 2 with a probability to choose it to buy material
+	map percentageCollect; //associating each prod of type 1 with a percentage collected on the max possible collected per prod
 	
 	bool is_built<-false;
 	int time_to_be_built <- 0;
 	
-	init {
+	action initialisation{
+		float distanceMinType1 <- self distance_to (closest_to(Producer where (each.type=1),self));
+		float distanceMinType2 <- self distance_to (closest_to(Producer where (each.type=2),self));
 		loop temp over: Producer{
 			add temp::false to:presenceProd;
+		}
+		loop temp over: Intermediary where (not(each.is_Consumer)){
+			if prestigious{
+				float computationType1 <- -(((self distance_to temp) + temp.price)-(distanceMinType1+distanceMaxPrestigeous))/distanceMaxPrestigeous; 
+				float computationType2 <- -(((self distance_to temp) + temp.price)-(distanceMinType2+distanceMaxPrestigeous))/distanceMaxPrestigeous;
+				if(temp.type=1){
+					add temp::computationType1 to:percentageCollect;
+				} else {
+					add temp::computationType2 to:probabilitiesProd;
+				}
+			} else {
+				float computationType1 <- -(((self distance_to temp) + temp.price)-(distanceMinType1+distanceMaxNotPrestigeous))/distanceMaxNotPrestigeous; 
+				float computationType2 <- -(((self distance_to temp) + temp.price)-(distanceMinType2+distanceMaxNotPrestigeous))/distanceMaxNotPrestigeous; 
+				if(temp.type=1){
+					add temp::computationType1 to:percentageCollect;
+				} else {
+					add temp::computationType2 to:probabilitiesProd;
+				}
+			}
+		}
+		if prestigious {
+			needType1 <- round(need*percentageType1Prestigeous);
+		} else {
+			needType1 <- round(need*percentageType1NotPrestigeous);
 		}
 	}
 	
@@ -241,16 +281,30 @@ species Consumer {
 	}
 	
 	//TODO add money in the computation
-	reflex buying when: not is_built{
+	//TODO : Buy depending on the type
+	reflex buyingType1 when: not is_built{
 		if(consumer_strategy=1){
-			do buy1;
+			do buy1Type1;
 		}
 		if(consumer_strategy=2){
-			do buy2;
+			do buy2Type1;
 		}
 	}
 	
-	action buy1 {
+	action buy1Type1 {}
+	
+	action buy2Type1 {}
+	
+	reflex buyingType2 when: not is_built{
+		if(consumer_strategy=1){
+			do buy1Type2;
+		}
+		if(consumer_strategy=2){
+			do buy2Type2;
+		}
+	}
+	
+	action buy1Type2 {
 		list<Intermediary> temp <- Intermediary where (not(each.is_Consumer));
 		temp <- temp sort_by((each distance_to self) + each.price);
 		loop tempInt over: temp{
@@ -314,7 +368,7 @@ species Consumer {
 		my_inter.stock <- collect;
 	}
 	
-	action buy2{
+	action buy2Type2{
 		list<Intermediary> temp <- Intermediary where (not(each.is_Consumer));
 		temp <- temp sort_by((each distance_to self) + each.price);
 		loop tempInt over: temp{
