@@ -148,6 +148,7 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 		}
 	}
 	
+	//TODO : give the execution list of consummes, removing the one already constructed.
 	action avec_retour{
 		//Retourner la liste des agents dans l'ordre d'éxécution.
 		return 1;
@@ -175,7 +176,7 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 		if(not(empty(Ware))){
 			loop tempConsum over: Consumer where not(each.is_built){
 				loop tempProd over: tempConsum.presenceProd.keys{
-					if ((tempProd !=nil) and bool(tempConsum.presenceProd[tempProd])){
+					if ((tempProd !=nil) and tempConsum.presenceProd[tempProd]){
 						create PolygonWare number: 1{
 							placeProd <- tempProd;
 							consumPlace <- tempConsum;
@@ -224,13 +225,14 @@ species Consumer {
 	bool priority;
 	int need <- consumRateFixed + rnd(consumRate) ;
 	int needType1; //is a percentage of the total need, depending if the consumer is prestigious.
+	int needType2;
 	int collect <- 0 ;
-	int collectype1 <-0;
+	int collectType1 <-0;
 	Intermediary my_inter; 
 	list<Ware> wareReceived <- nil;
-	map presenceProd;
-	map probabilitiesProd; //associating each prod of type 2 with a probability to choose it to buy material
-	map percentageCollect; //associating each prod of type 1 with a percentage collected on the max possible collected per prod
+	map<Producer,bool> presenceProd;
+	map<Intermediary,float> probabilitiesProd; //associating each prod of type 2 with a probability to choose it to buy material
+	map<Intermediary,float> percentageCollect; //associating each prod of type 1 with a percentage collected on the max possible collected per prod
 	
 	bool is_built<-false;
 	int time_to_be_built <- 0;
@@ -265,6 +267,7 @@ species Consumer {
 		} else {
 			needType1 <- round(need*percentageType1NotPrestigeous);
 		}
+		needType2 <- need-needType1;
 	}
 	
 	reflex updateInterStart{
@@ -281,7 +284,6 @@ species Consumer {
 	}
 	
 	//TODO add money in the computation
-	//TODO : Buy depending on the type
 	reflex buyingType1 when: not is_built{
 		if(consumer_strategy=1){
 			do buy1Type1;
@@ -291,11 +293,120 @@ species Consumer {
 		}
 	}
 	
-	action buy1Type1 {}
+	//TODO : clean by using less copy/paste
+	action buy1Type1 {
+		list<Intermediary> temp <- Intermediary where (not(each.is_Consumer) and each.type=1);
+		temp <- temp sort_by((each distance_to self) + each.price);
+		loop tempInt over: temp{
+			if (collectType1<needType1){
+				int collectTemp;
+				if(tempInt.is_Producer){
+				collectTemp <- min(needType1,round(self.percentageCollect[tempInt]*(tempInt.my_prod.stockMax-tempInt.my_prod.production)));
+				collectType1 <- collectType1+collectTemp;
+				if(collectTemp>0){
+						write "buy prod " + collectTemp;
+						create Ware number: 1{
+							prodPlace <- tempInt.my_prod;
+							origin <- tempInt;
+							quantity <- collectTemp;
+							target <- myself.location;
+							distance <- myself distance_to tempInt.my_prod;
+							put true at:self.prodPlace in: myself.presenceProd;
+						}
+						//tempInt.stock <- tempInt.stock - collectTemp;
+						tempInt.my_prod.production <- tempInt.my_prod.production + collectTemp;
+					}
+				} else {
+					collectTemp <- min(needType1,round(self.percentageCollect[tempInt]*tempInt.stock));
+					collectType1 <- collectType1+collectTemp;
+					if(collectTemp>0){
+						write "buy inter " + collectTemp;
+						list<Ware> tempWares <- Ware where(each.location = tempInt.location);
+						bool endCollecting <- false;
+						int recupWare<-0;
+						loop tempLoop over: tempWares{
+							if(not endCollecting){
+								if (recupWare+tempLoop.quantity <= collectTemp) {
+									recupWare <- recupWare + tempLoop.quantity;
+									tempLoop.target <- self.location;
+									tempLoop.distance <- tempLoop.distance + tempLoop distance_to self;
+								} else {
+									create Ware number: 1{
+										quantity <- collectTemp-recupWare;
+										target <- myself.location;
+										distance <- tempLoop.distance + self distance_to myself;
+										origin <- tempLoop.origin;
+										prodPlace <- tempLoop.prodPlace;
+										put true at:self.prodPlace in: myself.presenceProd;
+									}
+									tempLoop.quantity <- tempLoop.quantity - (collectTemp-recupWare);
+									recupWare <- collectTemp;
+								}
+								if(recupWare >= collectTemp){
+									endCollecting <- true;
+								}
+							}
+						}
+					}
+					ask tempInt{
+						stock <- stock - collectTemp;
+					}	
+				}
+			}
+		}
+		my_inter.capacity <- needType1;
+		my_inter.stock <- collectType1;
+	}
 	
-	action buy2Type1 {}
+	action buy2Type1 {
+		list<Intermediary> temp <- Intermediary where (not(each.is_Consumer) and each.type=1);
+		temp <- temp sort_by((each distance_to self) + each.price);
+		loop tempInt over: temp{
+			if (collectType1<needType1){
+				int collectTemp;
+				if (not(tempInt.is_Producer)and not(tempInt.is_Consumer)){
+				collectTemp <- min(needType1,tempInt.stock);
+				collectType1 <- collectType1+collectTemp;
+				if(collectTemp>0){
+						write "buy inter " + collectTemp;
+						list<Ware> tempWares <- Ware where(each.location = tempInt.location);
+						bool endCollecting <- false;
+						int recupWare<-0;
+						loop tempLoop over: tempWares{
+							if(not endCollecting){
+								if (recupWare+tempLoop.quantity <= collectTemp) {
+									recupWare <- recupWare + tempLoop.quantity;
+									tempLoop.target <- self.location;
+									tempLoop.distance <- tempLoop.distance + tempLoop distance_to self;
+								} else {
+									create Ware number: 1{
+										quantity <- collectTemp-recupWare;
+										target <- myself.location;
+										distance <- tempLoop.distance + self distance_to myself;
+										origin <- tempLoop.origin;
+										prodPlace <- tempLoop.prodPlace;
+									}
+									tempLoop.quantity <- tempLoop.quantity - (collectTemp-recupWare);
+									recupWare <- collectTemp;
+								}
+								if(recupWare >= collectTemp){
+									endCollecting <- true;
+								}
+							}
+						}
+					}
+					ask tempInt{
+						stock <- stock - collectTemp;
+					}	
+				}
+			}
+		}
+		my_inter.capacity <- needType1;
+		my_inter.stock <- collectType1;
+	}
 	
 	reflex buyingType2 when: not is_built{
+		//TODO : integrate the priority (transform the need in Type 1 into a global need (need <- need + (needType1-collectType1) et needType1 <- collectType1)
 		if(consumer_strategy=1){
 			do buy1Type2;
 		}
@@ -305,10 +416,11 @@ species Consumer {
 	}
 	
 	action buy1Type2 {
-		list<Intermediary> temp <- Intermediary where (not(each.is_Consumer));
+		//collect with a flip on the percentage associated with each intermediary
+		list<Intermediary> temp <- Intermediary where (not(each.is_Consumer) and each.type=2);
 		temp <- temp sort_by((each distance_to self) + each.price);
 		loop tempInt over: temp{
-			if (collect<need){
+			if (collect<need  and flip(self.probabilitiesProd[tempInt])){
 				int collectTemp;
 				if(tempInt.is_Producer){
 				collectTemp <- min(need,tempInt.my_prod.stockMax-tempInt.my_prod.production);
@@ -369,10 +481,10 @@ species Consumer {
 	}
 	
 	action buy2Type2{
-		list<Intermediary> temp <- Intermediary where (not(each.is_Consumer));
+		list<Intermediary> temp <- Intermediary where (not(each.is_Consumer) and each.type=2);
 		temp <- temp sort_by((each distance_to self) + each.price);
 		loop tempInt over: temp{
-			if (collect<need){
+			if (collect<need and flip(self.probabilitiesProd[tempInt])){
 				int collectTemp;
 				if (not(tempInt.is_Producer)and not(tempInt.is_Consumer)){
 				collectTemp <- min(need,tempInt.stock);
