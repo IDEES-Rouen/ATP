@@ -7,8 +7,7 @@
 
 model StoneModel
 
-//TODO : prestigious act befor others, and priorities act before others
-global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + shuffle(Producer) {
+global /*schedules: [world] + shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + shuffle(Producer)*/ {
 	int nb_init_Consumer_prestigious <- 2 parameter: true;
 	int nb_init_Consumer_not_prestigious <- 2 parameter: true;
 	int nb_init_Intermediary_type1 <- 1 parameter: true;
@@ -148,12 +147,6 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 		}
 	}
 	
-	//TODO : give the execution list of consummes, removing the one already constructed.
-	action avec_retour{
-		//Retourner la liste des agents dans l'ordre d'éxécution.
-		return 1;
-	}
-	
 	reflex displayReflex {
 		write "-------------------------";
 		averageDistance <- 0.0;
@@ -218,8 +211,8 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 	
 }
 
-species Consumer {
-	//TODO :diversify with types of ware and use of "money"
+//TODO : prestigious act befor others, and priorities act before others
+species Consumer schedules: shuffle(Consumer){
 	int money;
 	bool prestigious;
 	bool priority;
@@ -283,6 +276,12 @@ species Consumer {
 		time_to_be_built <- time_to_be_built +1;
 	}
 	
+	//TODO : give the execution list of consummes, removing the one already constructed.
+	action avec_retour{
+		//Retourner la liste des agents dans l'ordre d'éxécution.
+		return 1;
+	}
+	
 	//TODO add money in the computation
 	reflex buyingType1 when: not is_built{
 		if(consumer_strategy=1){
@@ -304,7 +303,7 @@ species Consumer {
 				collectTemp <- min(needType1,round(self.percentageCollect[tempInt]*(tempInt.my_prod.stockMax-tempInt.my_prod.production)));
 				collectType1 <- collectType1+collectTemp;
 				if(collectTemp>0){
-						write "buy prod " + collectTemp;
+						write self.name + " buy prod " + collectTemp;
 						create Ware number: 1{
 							prodPlace <- tempInt.my_prod;
 							origin <- tempInt;
@@ -320,7 +319,7 @@ species Consumer {
 					collectTemp <- min(needType1,round(self.percentageCollect[tempInt]*tempInt.stock));
 					collectType1 <- collectType1+collectTemp;
 					if(collectTemp>0){
-						write "buy inter " + collectTemp;
+						write self.name + " buy inter " + collectTemp;
 						list<Ware> tempWares <- Ware where(each.location = tempInt.location);
 						bool endCollecting <- false;
 						int recupWare<-0;
@@ -368,7 +367,7 @@ species Consumer {
 				collectTemp <- min(needType1,tempInt.stock);
 				collectType1 <- collectType1+collectTemp;
 				if(collectTemp>0){
-						write "buy inter " + collectTemp;
+						write self.name + " buy inter " + collectTemp;
 						list<Ware> tempWares <- Ware where(each.location = tempInt.location);
 						bool endCollecting <- false;
 						int recupWare<-0;
@@ -426,7 +425,7 @@ species Consumer {
 				collectTemp <- min(need,tempInt.my_prod.stockMax-tempInt.my_prod.production);
 				collect <- collect+collectTemp;
 				if(collectTemp>0){
-						write "buy prod " + collectTemp;
+						write self.name + " buy prod " + collectTemp;
 						create Ware number: 1{
 							prodPlace <- tempInt.my_prod;
 							origin <- tempInt;
@@ -442,7 +441,7 @@ species Consumer {
 					collectTemp <- min(need,tempInt.stock);
 					collect <- collect+collectTemp;
 					if(collectTemp>0){
-						write "buy inter " + collectTemp;
+						write self.name + " buy inter " + collectTemp;
 						list<Ware> tempWares <- Ware where(each.location = tempInt.location);
 						bool endCollecting <- false;
 						int recupWare<-0;
@@ -490,7 +489,7 @@ species Consumer {
 				collectTemp <- min(need,tempInt.stock);
 				collect <- collect+collectTemp;
 				if(collectTemp>0){
-						write "buy inter " + collectTemp;
+						write self.name + " buy inter " + collectTemp;
 						list<Ware> tempWares <- Ware where(each.location = tempInt.location);
 						bool endCollecting <- false;
 						int recupWare<-0;
@@ -532,7 +531,7 @@ species Consumer {
 	}
 }
 
-species Intermediary {
+species Intermediary  schedules: shuffle(Intermediary){
 	int stock <- 0;
 	int capacity <- rnd(capacityInter);
 	float price <- 0.0; 
@@ -668,7 +667,7 @@ species Intermediary {
 	}
 }
 
-species Producer{
+species Producer  schedules: shuffle(Producer){
 	int production <- 0 ;
 	int productionBefore;
 	int stock <- 0 ;
@@ -700,7 +699,7 @@ species Producer{
 	}
 }
 
-species Ware{
+species Ware  schedules: shuffle(Ware){
 	int type;
 	int quantity;
 	Intermediary origin;
