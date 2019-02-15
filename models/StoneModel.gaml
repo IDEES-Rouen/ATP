@@ -39,7 +39,7 @@ global /*schedules: [world] + shuffle(Consumer) + shuffle(Intermediary) + shuffl
 	
 	init {
 		do createProd(nb_init_prod_type1,1);
-		do createProd(nb_init_prod_type1,2);
+		do createProd(nb_init_prod_type2,2);
 		do createInter(nb_init_Intermediary_type1,1);
 		do createInter(nb_init_Intermediary_type1,2);
 		do createConsum(nb_init_Consumer_prestigious,true);
@@ -170,11 +170,19 @@ global /*schedules: [world] + shuffle(Consumer) + shuffle(Intermediary) + shuffl
 			loop tempConsum over: Consumer where not(each.is_built){
 				loop tempProd over: tempConsum.presenceProd.keys{
 					if ((tempProd !=nil) and tempConsum.presenceProd[tempProd]){
-						create PolygonWare number: 1{
-							placeProd <- tempProd;
-							consumPlace <- tempConsum;
-							shape <- line([placeProd,consumPlace],150.0);
-						}	
+						bool exists<-false;
+						loop tempPoly over: PolygonWare{
+							if((tempPoly.placeProd = tempProd)and (tempPoly.consumPlace=tempConsum)){
+								exists<-true;
+							}
+						}
+						if(not exists){
+							create PolygonWare number: 1{
+								placeProd <- tempProd;
+								consumPlace <- tempConsum;
+								shape <- line([placeProd,consumPlace],150.0);
+							}
+						}
 					}
 				}
 			}
@@ -211,8 +219,11 @@ global /*schedules: [world] + shuffle(Consumer) + shuffle(Intermediary) + shuffl
 	
 }
 
-//TODO : prestigious act befor others, and priorities act before others
-species Consumer schedules: shuffle(Consumer){
+species Consumer schedules: shuffle(Consumer where (not(each.is_built) and (each.prestigious and each.priority))) + 
+shuffle(Consumer where (not(each.is_built) and (each.prestigious and not(each.priority)))) + 
+shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and each.priority))) + 
+shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(each.priority))))
+{
 	int money;
 	bool prestigious;
 	bool priority;
@@ -268,21 +279,15 @@ species Consumer schedules: shuffle(Consumer){
 		my_inter.stock <- collect;
 	}
 	
-	reflex updateConstruit when:not is_built{
-		if(collect>=need){
+	reflex updateBuilt when:not is_built{
+		//TODO : integarte types and needs to the is_built computation
+		if(collect>=need and collectType1>=needType1){
 			is_built <- true;
-			write self.name + " est construit";
+			write self.name + " is built";
 		}
 		time_to_be_built <- time_to_be_built +1;
 	}
 	
-	//TODO : give the execution list of consummes, removing the one already constructed.
-	action avec_retour{
-		//Retourner la liste des agents dans l'ordre d'éxécution.
-		return 1;
-	}
-	
-	//TODO add money in the computation
 	reflex buyingType1 when: not is_built{
 		if(consumer_strategy=1){
 			do buy1Type1;
@@ -357,6 +362,7 @@ species Consumer schedules: shuffle(Consumer){
 		my_inter.stock <- collectType1;
 	}
 	
+	//TODO : put true at the producerPresence map
 	action buy2Type1 {
 		list<Intermediary> temp <- Intermediary where (not(each.is_Consumer) and each.type=1);
 		temp <- temp sort_by((each distance_to self) + each.price);
@@ -415,7 +421,6 @@ species Consumer schedules: shuffle(Consumer){
 	}
 	
 	action buy1Type2 {
-		//collect with a flip on the percentage associated with each intermediary
 		list<Intermediary> temp <- Intermediary where (not(each.is_Consumer) and each.type=2);
 		temp <- temp sort_by((each distance_to self) + each.price);
 		loop tempInt over: temp{
@@ -752,6 +757,7 @@ experiment Spreading type: gui {
 	
 	// inspect one_or_several_agents;
 	//
+	//TODO : add an image as background
 		display main_display background: #lightgray { 
 			species Consumer aspect:base;
 			species Intermediary aspect:base;
@@ -772,14 +778,15 @@ experiment Spreading type: gui {
 			}
 		}
 	//TODO : display percentage of producer per consumer
+	
 		display "production information" {
-			chart "production information" type:histogram size: {0.5,1} position: {0, 0}
+			chart "production information" type:series size: {0.5,1} position: {0, 0}
 			{
 				loop tempProd over: Producer {
 					data tempProd.name value: tempProd.productionBefore;
 				}
 			}
-			chart "stock information" type:histogram size: {0.5,1} position: {0.5, 0}
+			chart "stock information" type:series size: {0.5,1} position: {0.5, 0}
 			{
 				loop tempProd over: Producer {
 					data tempProd.name value: tempProd.stock;
