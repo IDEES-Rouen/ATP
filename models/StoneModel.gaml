@@ -14,7 +14,7 @@ global /*schedules: [world] + shuffle(Consumer) + shuffle(Intermediary) + shuffl
 	int nb_init_Intermediary_type2 <- 1 parameter: true;
 	int nb_init_prod_type1 <- 2 parameter: true;
 	int nb_init_prod_type2 <- 2 parameter: true;
-	geometry shape <- square(200/*0*/);
+	geometry shape <- square(2000);
 	float averageDistance <- 0.0;
 	float distanceMax <- 0.0;
 	float distanceMin <- 0.0;
@@ -251,6 +251,18 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 			if prestigious{
 				float computationType1 <- -(((self distance_to temp) + temp.price)-(distanceMinType1+distanceMaxPrestigeous))/distanceMaxPrestigeous; 
 				float computationType2 <- -(((self distance_to temp) + temp.price)-(distanceMinType2+distanceMaxPrestigeous))/distanceMaxPrestigeous;
+				if(computationType1 < 0.0){
+					computationType1 <- 0.0;
+				}
+				if(computationType1 > 1.0){
+					computationType1 <- 1.0;
+				}
+				if(computationType2 < 0.0){
+					computationType2 <- 0.0;
+				}
+				if(computationType2 > 1.0){
+					computationType2 <- 1.0;
+				}
 				if(temp.type=1){
 					add temp::computationType1 to:percentageCollect;
 				} else {
@@ -259,6 +271,18 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 			} else {
 				float computationType1 <- -(((self distance_to temp) + temp.price)-(distanceMinType1+distanceMaxNotPrestigeous))/distanceMaxNotPrestigeous; 
 				float computationType2 <- -(((self distance_to temp) + temp.price)-(distanceMinType2+distanceMaxNotPrestigeous))/distanceMaxNotPrestigeous; 
+				if(computationType1 < 0.0){
+					computationType1 <- 0.0;
+				}
+				if(computationType1 > 1.0){
+					computationType1 <- 1.0;
+				}
+				if(computationType2 < 0.0){
+					computationType2 <- 0.0;
+				}
+				if(computationType2 > 1.0){
+					computationType2 <- 1.0;
+				}
 				if(temp.type=1){
 					add temp::computationType1 to:percentageCollect;
 				} else {
@@ -281,7 +305,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 	
 	reflex updateBuilt when:not is_built{
 		//TODO : integarte types and needs to the is_built computation
-		if(collect>=need and collectType1>=needType1){
+		if(collect>=needType2 and collectType1>=needType1){
 			is_built <- true;
 			write self.name + " is built";
 		}
@@ -308,7 +332,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 				collectTemp <- min(needType1,round(self.percentageCollect[tempInt]*(tempInt.my_prod.stockMax-tempInt.my_prod.production)));
 				collectType1 <- collectType1+collectTemp;
 				if(collectTemp>0){
-						write self.name + " buy prod " + collectTemp;
+						write self.name + " buy prod Type 1 " + collectTemp;
 						create Ware number: 1{
 							prodPlace <- tempInt.my_prod;
 							origin <- tempInt;
@@ -324,7 +348,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 					collectTemp <- min(needType1,round(self.percentageCollect[tempInt]*tempInt.stock));
 					collectType1 <- collectType1+collectTemp;
 					if(collectTemp>0){
-						write self.name + " buy inter " + collectTemp;
+						write self.name + " buy inter Type 1 " + collectTemp;
 						list<Ware> tempWares <- Ware where(each.location = tempInt.location);
 						bool endCollecting <- false;
 						int recupWare<-0;
@@ -362,7 +386,6 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 		my_inter.stock <- collectType1;
 	}
 	
-	//TODO : put true at the producerPresence map
 	action buy2Type1 {
 		list<Intermediary> temp <- Intermediary where (not(each.is_Consumer) and each.type=1);
 		temp <- temp sort_by((each distance_to self) + each.price);
@@ -373,7 +396,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 				collectTemp <- min(needType1,tempInt.stock);
 				collectType1 <- collectType1+collectTemp;
 				if(collectTemp>0){
-						write self.name + " buy inter " + collectTemp;
+						write self.name + " buy inter Type 1 " + collectTemp;
 						list<Ware> tempWares <- Ware where(each.location = tempInt.location);
 						bool endCollecting <- false;
 						int recupWare<-0;
@@ -390,6 +413,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 										distance <- tempLoop.distance + self distance_to myself;
 										origin <- tempLoop.origin;
 										prodPlace <- tempLoop.prodPlace;
+										put true at:self.prodPlace in: myself.presenceProd;
 									}
 									tempLoop.quantity <- tempLoop.quantity - (collectTemp-recupWare);
 									recupWare <- collectTemp;
@@ -412,6 +436,10 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 	
 	reflex buyingType2 when: not is_built{
 		//TODO : integrate the priority (transform the need in Type 1 into a global need (need <- need + (needType1-collectType1) et needType1 <- collectType1)
+		if(priority){
+			needType2 <- need - collectType1;
+			needType1 <- collectType1;
+		}
 		if(consumer_strategy=1){
 			do buy1Type2;
 		}
@@ -424,13 +452,13 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 		list<Intermediary> temp <- Intermediary where (not(each.is_Consumer) and each.type=2);
 		temp <- temp sort_by((each distance_to self) + each.price);
 		loop tempInt over: temp{
-			if (collect<need  and flip(self.probabilitiesProd[tempInt])){
+			if (collect<needType2  and flip(self.probabilitiesProd[tempInt])){
 				int collectTemp;
 				if(tempInt.is_Producer){
 				collectTemp <- min(need,tempInt.my_prod.stockMax-tempInt.my_prod.production);
 				collect <- collect+collectTemp;
 				if(collectTemp>0){
-						write self.name + " buy prod " + collectTemp;
+						write self.name + " buy prod Type 2 " + collectTemp;
 						create Ware number: 1{
 							prodPlace <- tempInt.my_prod;
 							origin <- tempInt;
@@ -446,7 +474,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 					collectTemp <- min(need,tempInt.stock);
 					collect <- collect+collectTemp;
 					if(collectTemp>0){
-						write self.name + " buy inter " + collectTemp;
+						write self.name + " buy inter Type 2 " + collectTemp;
 						list<Ware> tempWares <- Ware where(each.location = tempInt.location);
 						bool endCollecting <- false;
 						int recupWare<-0;
@@ -488,13 +516,13 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 		list<Intermediary> temp <- Intermediary where (not(each.is_Consumer) and each.type=2);
 		temp <- temp sort_by((each distance_to self) + each.price);
 		loop tempInt over: temp{
-			if (collect<need and flip(self.probabilitiesProd[tempInt])){
+			if (collect<needType2 and flip(self.probabilitiesProd[tempInt])){
 				int collectTemp;
 				if (not(tempInt.is_Producer)and not(tempInt.is_Consumer)){
 				collectTemp <- min(need,tempInt.stock);
 				collect <- collect+collectTemp;
 				if(collectTemp>0){
-						write self.name + " buy inter " + collectTemp;
+						write self.name + " buy inter Type 2 " + collectTemp;
 						list<Ware> tempWares <- Ware where(each.location = tempInt.location);
 						bool endCollecting <- false;
 						int recupWare<-0;
@@ -779,17 +807,56 @@ experiment Spreading type: gui {
 		}
 	//TODO : display percentage of producer per consumer
 	
+		display "information on consumers" /*type:java2D*/ {
+			chart "information on consumers for Type 1" type:histogram size: {0.5,1} position: {0, 0}
+			style:stack
+//			x_serie_labels:("cycle"+cycle)
+//			x_range:5
+			{
+				loop tempConsum over: Consumer{
+					//stock quantity from each producer in a table and write it here
+				}
+//				data "BCC" value:cos(100*cycle)*cycle*cycle
+////				accumulate_values: true						
+//				color:#yellow;
+//				data "ABC" value:cycle*cycle 
+////				accumulate_values: true						
+//					color:#blue;
+//				data "BCD" value:cycle+1
+////				accumulate_values: true						
+//				marker_shape:marker_circle ;
+			}
+			chart "information on consumers for Type 2" type:histogram size: {0.5,1} position: {0.5, 0}
+			style:stack
+//			x_serie_labels:("cycle"+cycle)
+//			x_range:5
+			{
+				loop tempConsum over: Consumer{
+					//stock quantity from each producer in a table and write it here
+				}
+//				data "BCC" value:cos(100*cycle)*cycle*cycle
+////				accumulate_values: true						
+//				color:#yellow;
+//				data "ABC" value:cycle*cycle 
+////				accumulate_values: true						
+//					color:#blue;
+//				data "BCD" value:cycle+1
+////				accumulate_values: true						
+//				marker_shape:marker_circle ;
+			}
+		} 
+	
 		display "production information" {
 			chart "production information" type:series size: {0.5,1} position: {0, 0}
 			{
 				loop tempProd over: Producer {
-					data tempProd.name value: tempProd.productionBefore;
+					data tempProd.name value: tempProd.productionBefore color:tempProd.color;
 				}
 			}
 			chart "stock information" type:series size: {0.5,1} position: {0.5, 0}
 			{
 				loop tempProd over: Producer {
-					data tempProd.name value: tempProd.stock;
+					data tempProd.name value: tempProd.stock color:tempProd.color;
 				}
 			}
 		} 
