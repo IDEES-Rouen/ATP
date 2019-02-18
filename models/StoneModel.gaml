@@ -88,7 +88,6 @@ global /*schedules: [world] + shuffle(Consumer) + shuffle(Intermediary) + shuffl
 				my_prod <- nil;
 				capacity <- myself.need;
 				stock <- myself.collect;
-				money <- myself.money;
 				
 				ask myself{
 					my_inter <- myself;
@@ -224,7 +223,6 @@ shuffle(Consumer where (not(each.is_built) and (each.prestigious and not(each.pr
 shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and each.priority))) + 
 shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(each.priority))))
 {
-	int money;
 	bool prestigious;
 	bool priority;
 	int need <- consumRateFixed + rnd(consumRate) ;
@@ -234,6 +232,8 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 	int collectType1 <-0;
 	Intermediary my_inter; 
 	list<Ware> wareReceived <- nil;
+	//TODO : a map with a quantity linked to each producer, for the display of histogram
+	map<Producer,float> quantityPerProd;
 	map<Producer,bool> presenceProd;
 	map<Intermediary,float> probabilitiesProd; //associating each prod of type 2 with a probability to choose it to buy material
 	map<Intermediary,float> percentageCollect; //associating each prod of type 1 with a percentage collected on the max possible collected per prod
@@ -298,13 +298,16 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 		needType2 <- need-needType1;
 	}
 	
-	reflex updateInterStart{
+	reflex updateInterStart when: not is_built{
 		my_inter.capacity <- need;
 		my_inter.stock <- collect;
 	}
 	
+	reflex updateQuantityPerProd when: not is_built{
+		
+	}
+	
 	reflex updateBuilt when:not is_built{
-		//TODO : integarte types and needs to the is_built computation
 		if(collect>=needType2 and collectType1>=needType1){
 			is_built <- true;
 			write self.name + " is built";
@@ -329,7 +332,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 			if (collectType1<needType1){
 				int collectTemp;
 				if(tempInt.is_Producer){
-				collectTemp <- min(needType1,round(self.percentageCollect[tempInt]*(tempInt.my_prod.stockMax-tempInt.my_prod.production)));
+				collectTemp <- min(needType1-collectType1,round(self.percentageCollect[tempInt]*(tempInt.my_prod.stockMax-tempInt.my_prod.production)));
 				collectType1 <- collectType1+collectTemp;
 				if(collectTemp>0){
 						write self.name + " buy prod Type 1 " + collectTemp;
@@ -345,7 +348,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 						tempInt.my_prod.production <- tempInt.my_prod.production + collectTemp;
 					}
 				} else {
-					collectTemp <- min(needType1,round(self.percentageCollect[tempInt]*tempInt.stock));
+					collectTemp <- min(needType1-collectType1,round(self.percentageCollect[tempInt]*tempInt.stock));
 					collectType1 <- collectType1+collectTemp;
 					if(collectTemp>0){
 						write self.name + " buy inter Type 1 " + collectTemp;
@@ -393,7 +396,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 			if (collectType1<needType1){
 				int collectTemp;
 				if (not(tempInt.is_Producer)and not(tempInt.is_Consumer)){
-				collectTemp <- min(needType1,tempInt.stock);
+				collectTemp <- min(needType1-collectType1,tempInt.stock);
 				collectType1 <- collectType1+collectTemp;
 				if(collectTemp>0){
 						write self.name + " buy inter Type 1 " + collectTemp;
@@ -455,7 +458,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 			if (collect<needType2  and flip(self.probabilitiesProd[tempInt])){
 				int collectTemp;
 				if(tempInt.is_Producer){
-				collectTemp <- min(need,tempInt.my_prod.stockMax-tempInt.my_prod.production);
+				collectTemp <- min(needType2-collect,tempInt.my_prod.stockMax-tempInt.my_prod.production);
 				collect <- collect+collectTemp;
 				if(collectTemp>0){
 						write self.name + " buy prod Type 2 " + collectTemp;
@@ -471,7 +474,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 						tempInt.my_prod.production <- tempInt.my_prod.production + collectTemp;
 					}
 				} else {
-					collectTemp <- min(need,tempInt.stock);
+					collectTemp <- min(needType2-collect,tempInt.stock);
 					collect <- collect+collectTemp;
 					if(collectTemp>0){
 						write self.name + " buy inter Type 2 " + collectTemp;
@@ -519,7 +522,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 			if (collect<needType2 and flip(self.probabilitiesProd[tempInt])){
 				int collectTemp;
 				if (not(tempInt.is_Producer)and not(tempInt.is_Consumer)){
-				collectTemp <- min(need,tempInt.stock);
+				collectTemp <- min(needType2-collect,tempInt.stock);
 				collect <- collect+collectTemp;
 				if(collectTemp>0){
 						write self.name + " buy inter Type 2 " + collectTemp;
@@ -572,7 +575,6 @@ species Intermediary  schedules: shuffle(Intermediary){
 	Producer my_prod;
 	bool is_Consumer;
 	Consumer my_consum;
-	int money;
 	int type; //each intermediary is specialised in a type of stone
 	
 	reflex buying when: not is_Producer and not is_Consumer {
