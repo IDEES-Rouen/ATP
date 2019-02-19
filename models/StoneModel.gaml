@@ -246,6 +246,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 		float distanceMinType2 <- self distance_to (closest_to(Producer where (each.type=2),self));
 		loop temp over: Producer{
 			add temp::false to:presenceProd;
+			add temp::0.0 to: quantityPerProd;
 		}
 		loop temp over: Intermediary where (not(each.is_Consumer)){
 			if prestigious{
@@ -303,13 +304,16 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 		my_inter.stock <- collect;
 	}
 	
-	reflex updateQuantityPerProd when: not is_built{
-		
+	action updateQuantityPerProd{
+		loop temp over:wareReceived{
+			quantityPerProd[temp.prodPlace]<-quantityPerProd[temp.prodPlace]+temp.quantity;
+		}
 	}
 	
 	reflex updateBuilt when:not is_built{
 		if(collect>=needType2 and collectType1>=needType1){
 			is_built <- true;
+			do updateQuantityPerProd;
 			write self.name + " is built";
 		}
 		time_to_be_built <- time_to_be_built +1;
@@ -343,6 +347,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 							target <- myself.location;
 							distance <- myself distance_to tempInt.my_prod;
 							put true at:self.prodPlace in: myself.presenceProd;
+							add self to: myself.wareReceived;
 						}
 						//tempInt.stock <- tempInt.stock - collectTemp;
 						tempInt.my_prod.production <- tempInt.my_prod.production + collectTemp;
@@ -369,6 +374,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 										origin <- tempLoop.origin;
 										prodPlace <- tempLoop.prodPlace;
 										put true at:self.prodPlace in: myself.presenceProd;
+										add self to: myself.wareReceived;
 									}
 									tempLoop.quantity <- tempLoop.quantity - (collectTemp-recupWare);
 									recupWare <- collectTemp;
@@ -417,6 +423,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 										origin <- tempLoop.origin;
 										prodPlace <- tempLoop.prodPlace;
 										put true at:self.prodPlace in: myself.presenceProd;
+										add self to: myself.wareReceived;
 									}
 									tempLoop.quantity <- tempLoop.quantity - (collectTemp-recupWare);
 									recupWare <- collectTemp;
@@ -469,6 +476,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 							target <- myself.location;
 							distance <- myself distance_to tempInt.my_prod;
 							put true at:self.prodPlace in: myself.presenceProd;
+							add self to: myself.wareReceived;
 						}
 						//tempInt.stock <- tempInt.stock - collectTemp;
 						tempInt.my_prod.production <- tempInt.my_prod.production + collectTemp;
@@ -495,6 +503,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 										origin <- tempLoop.origin;
 										prodPlace <- tempLoop.prodPlace;
 										put true at:self.prodPlace in: myself.presenceProd;
+										add self to: myself.wareReceived;
 									}
 									tempLoop.quantity <- tempLoop.quantity - (collectTemp-recupWare);
 									recupWare <- collectTemp;
@@ -542,6 +551,8 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 										distance <- tempLoop.distance + self distance_to myself;
 										origin <- tempLoop.origin;
 										prodPlace <- tempLoop.prodPlace;
+										put true at:self.prodPlace in: myself.presenceProd;
+										add self to: myself.wareReceived;
 									}
 									tempLoop.quantity <- tempLoop.quantity - (collectTemp-recupWare);
 									recupWare <- collectTemp;
@@ -807,44 +818,16 @@ experiment Spreading type: gui {
 				data "distance min" value:distanceMin color: #blue;
 			}
 		}
-	//TODO : display percentage of producer per consumer
-	
+		
 		display "information on consumers" /*type:java2D*/ {
-			chart "information on consumers for Type 1" type:histogram size: {0.5,1} position: {0, 0}
+			chart "information on consumers" type:histogram
 			style:stack
-//			x_serie_labels:("cycle"+cycle)
-//			x_range:5
 			{
-				loop tempConsum over: Consumer{
-					//stock quantity from each producer in a table and write it here
+				loop tempProd over:Producer{
+					data tempProd.name style: stack
+					value:(Consumer collect each.quantityPerProd[tempProd])
+					color: tempProd.color;
 				}
-//				data "BCC" value:cos(100*cycle)*cycle*cycle
-////				accumulate_values: true						
-//				color:#yellow;
-//				data "ABC" value:cycle*cycle 
-////				accumulate_values: true						
-//					color:#blue;
-//				data "BCD" value:cycle+1
-////				accumulate_values: true						
-//				marker_shape:marker_circle ;
-			}
-			chart "information on consumers for Type 2" type:histogram size: {0.5,1} position: {0.5, 0}
-			style:stack
-//			x_serie_labels:("cycle"+cycle)
-//			x_range:5
-			{
-				loop tempConsum over: Consumer{
-					//stock quantity from each producer in a table and write it here
-				}
-//				data "BCC" value:cos(100*cycle)*cycle*cycle
-////				accumulate_values: true						
-//				color:#yellow;
-//				data "ABC" value:cycle*cycle 
-////				accumulate_values: true						
-//					color:#blue;
-//				data "BCD" value:cycle+1
-////				accumulate_values: true						
-//				marker_shape:marker_circle ;
 			}
 		} 
 	
