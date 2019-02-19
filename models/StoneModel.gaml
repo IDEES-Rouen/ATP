@@ -14,7 +14,13 @@ global /*schedules: [world] + shuffle(Consumer) + shuffle(Intermediary) + shuffl
 	int nb_init_Intermediary_type2 <- 1 parameter: true;
 	int nb_init_prod_type1 <- 2 parameter: true;
 	int nb_init_prod_type2 <- 2 parameter: true;
-	geometry shape <- square(2000);
+	
+	file envelopeMap_shapefile <- file("../includes/envelopeMap.shp");
+	file backMap_shapefile <- file("../includes/backMap.shp");
+	file caumont_shapefile <- file("../includes/caumont.shp");
+	file vernon_shapefile <- file("../includes/vernon.shp");
+	geometry shape <- envelope(envelopeMap_shapefile);//rectangle(1763,2370);//square(2000);
+	
 	float averageDistance <- 0.0;
 	float distanceMax <- 0.0;
 	float distanceMin <- 0.0;
@@ -38,7 +44,47 @@ global /*schedules: [world] + shuffle(Consumer) + shuffle(Intermediary) + shuffl
 	int producer_strategy <- 1 parameter: true min: 1 max: 2; //1: produce just what has been oredered. 2: produce the maximum it can
 	
 	init {
-		do createProd(nb_init_prod_type1,1);
+		create BackMap from: backMap_shapefile;
+		if(nb_init_prod_type1=2){
+		create Producer from: caumont_shapefile number: 1{
+			type<-1;
+//			location <- any_location_in(first(BackMap));
+			create Intermediary number: 1{
+				location <-myself.location;
+				is_Consumer <- false;
+				my_consum <- nil;
+				is_Producer <- true;
+				my_prod <- myself;
+				capacity <- myself.stockMax;
+				stock <- myself.stock;
+				type<-1;
+				
+				ask myself{
+					my_inter <- myself;
+				}
+			}
+		}
+		create Producer from: vernon_shapefile number: 1{
+			type<-1;
+//			location <- any_location_in(first(BackMap));
+			create Intermediary number: 1{
+				location <-myself.location;
+				is_Consumer <- false;
+				my_consum <- nil;
+				is_Producer <- true;
+				my_prod <- myself;
+				capacity <- myself.stockMax;
+				stock <- myself.stock;
+				type<-1;
+				
+				ask myself{
+					my_inter <- myself;
+				}
+			}
+		}
+		} else {
+			do createProd(nb_init_prod_type1,1);
+		}
 		do createProd(nb_init_prod_type2,2);
 		do createInter(nb_init_Intermediary_type1,1);
 		do createInter(nb_init_Intermediary_type1,2);
@@ -78,6 +124,7 @@ global /*schedules: [world] + shuffle(Consumer) + shuffle(Intermediary) + shuffl
 	
 	action createConsum(int nb_conso, bool prestig){
 		create Consumer number: nb_conso{
+			location <- any_location_in(first(BackMap));
 			prestigious <- prestig;
 			do initialisation;
 			create Intermediary number: 1{
@@ -105,6 +152,7 @@ global /*schedules: [world] + shuffle(Consumer) + shuffle(Intermediary) + shuffl
 	action createProd(int nb_prod, int typeProd){
 		create Producer number: nb_prod{
 			type<-typeProd;
+			location <- any_location_in(first(BackMap));
 			create Intermediary number: 1{
 				location <-myself.location;
 				is_Consumer <- false;
@@ -130,6 +178,7 @@ global /*schedules: [world] + shuffle(Consumer) + shuffle(Intermediary) + shuffl
 	
 	action createInter(int nb_inter, int typeStone){
 		create Intermediary number: nb_inter{
+			location <- any_location_in(first(BackMap));
 			is_Producer <- false;
 			my_prod <- nil;
 			is_Consumer <- false;
@@ -232,7 +281,6 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 	int collectType1 <-0;
 	Intermediary my_inter; 
 	list<Ware> wareReceived <- nil;
-	//TODO : a map with a quantity linked to each producer, for the display of histogram
 	map<Producer,float> quantityPerProd;
 	map<Producer,bool> presenceProd;
 	map<Intermediary,float> probabilitiesProd; //associating each prod of type 2 with a probability to choose it to buy material
@@ -247,6 +295,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 		loop temp over: Producer{
 			add temp::false to:presenceProd;
 			add temp::0.0 to: quantityPerProd;
+			write self distance_to temp;
 		}
 		loop temp over: Intermediary where (not(each.is_Consumer)){
 			if prestigious{
@@ -445,7 +494,6 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 	}
 	
 	reflex buyingType2 when: not is_built{
-		//TODO : integrate the priority (transform the need in Type 1 into a global need (need <- need + (needType1-collectType1) et needType1 <- collectType1)
 		if(priority){
 			needType2 <- need - collectType1;
 			needType1 <- collectType1;
@@ -783,6 +831,12 @@ species PolygonWare { //Used to draw lines of wares depending on their place of 
 	}
 }
 
+species BackMap {//Used for the display
+	aspect base{
+		draw shape border: #black empty:true ;
+	}
+}
+
 experiment Spreading type: gui {
 
 	
@@ -798,8 +852,8 @@ experiment Spreading type: gui {
 	
 	// inspect one_or_several_agents;
 	//
-	//TODO : add an image as background
 		display main_display background: #lightgray { 
+			species BackMap aspect:base;
 			species Consumer aspect:base;
 			species Intermediary aspect:base;
 			species Producer aspect:base;
@@ -808,7 +862,9 @@ experiment Spreading type: gui {
 		}
 
 		display second_display background: #lightgray {
+			image "../includes/mapStone.png";
 			species PolygonWare;
+//			species BackMap aspect:base;
 		}
 
 		display distance /*refresh:every(10.0)*/  {
