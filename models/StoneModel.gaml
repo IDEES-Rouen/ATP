@@ -295,7 +295,6 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 		loop temp over: Producer{
 			add temp::false to:presenceProd;
 			add temp::0.0 to: quantityPerProd;
-			write self distance_to temp;
 		}
 		loop temp over: Intermediary where (not(each.is_Consumer)){
 			if prestigious{
