@@ -7,7 +7,7 @@
 
 model StoneModel
 
-global /*schedules: [world] + shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + shuffle(Producer)*/ {
+global schedules: [world] + Consumer + Intermediary + Ware + Producer {
 	int nb_init_Consumer_prestigious <- 2 parameter: true;
 	int nb_init_Consumer_not_prestigious <- 2 parameter: true;
 	int nb_init_Intermediary_type1 <- 1 parameter: true;
@@ -34,6 +34,7 @@ global /*schedules: [world] + shuffle(Consumer) + shuffle(Intermediary) + shuffl
 	float percentageType1NotPrestigeous <- 0.0 parameter: true; //between 0 and 1
 	float distanceMaxPrestigeous <- 1000.0 parameter:true;
 	float distanceMaxNotPrestigeous <- 100.0 parameter:true;
+	float distanceMaxIntermediary <- 1500.0 parameter:true;
 	int capacityInter <- 30 parameter: true;
 	int stock_max_prod <- 10 parameter: true;
 	int stock_max_prod_fixe <- 100 parameter: true;
@@ -183,9 +184,9 @@ global /*schedules: [world] + shuffle(Consumer) + shuffle(Intermediary) + shuffl
 			my_prod <- nil;
 			is_Consumer <- false;
 			my_consum <- nil;
-			capacity <- rnd(capacityInter);
 			price <- init_price;
 			type <- typeStone;
+			do initialisation;
 		}
 	}
 	
@@ -290,13 +291,31 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 	int time_to_be_built <- 0;
 	
 	action initialisation{
-		float distanceMinType1 <- self distance_to (closest_to(Producer where (each.type=1),self));
-		float distanceMinType2 <- self distance_to (closest_to(Producer where (each.type=2),self));
+		//TODO : adapt this computation to the buying strategy from the consumer
+		float distanceMinType1 <- 0.0;
+		float distanceMinType2 <- 0.0;
+		if(consumer_strategy=1){
+			Intermediary tempType1 <- closest_to(Intermediary where ((each.type=1) and not each.is_Consumer),self);
+			Intermediary tempType2 <- closest_to(Intermediary where ((each.type=2) and not each.is_Consumer),self);
+			distanceMinType1 <- self distance_to tempType1;
+			distanceMinType2 <- self distance_to tempType2;
+			distanceMinType1 <- distanceMinType1 + tempType1.price;
+			distanceMinType2 <- distanceMinType2 + tempType2.price;
+		}
+		if(consumer_strategy=2){
+			Intermediary tempType1 <- closest_to(Intermediary where ((each.type=1) and (not(each.is_Consumer) and not(each.is_Producer))),self);
+			Intermediary tempType2 <- closest_to(Intermediary where ((each.type=2) and (not(each.is_Consumer) and not(each.is_Producer))),self);
+			distanceMinType1 <- self distance_to tempType1;
+			distanceMinType2 <- self distance_to tempType2;
+			distanceMinType1 <- distanceMinType1 + tempType1.price;
+			distanceMinType2 <- distanceMinType2 + tempType2.price;
+		}
+		
 		loop temp over: Producer{
 			add temp::false to:presenceProd;
 			add temp::0.0 to: quantityPerProd;
 		}
-		loop temp over: Intermediary where (not(each.is_Consumer)){
+		loop temp over: (Intermediary where (not(each.is_Consumer))){
 			if prestigious{
 				float computationType1 <- -(((self distance_to temp) + temp.price)-(distanceMinType1+distanceMaxPrestigeous))/distanceMaxPrestigeous; 
 				float computationType2 <- -(((self distance_to temp) + temp.price)-(distanceMinType2+distanceMaxPrestigeous))/distanceMaxPrestigeous;
@@ -318,8 +337,8 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 					add temp::computationType2 to:probabilitiesProd;
 				}
 			} else {
-				float computationType1 <- -(((self distance_to temp) + temp.price)-(distanceMinType1+distanceMaxNotPrestigeous))/distanceMaxNotPrestigeous; 
-				float computationType2 <- -(((self distance_to temp) + temp.price)-(distanceMinType2+distanceMaxNotPrestigeous))/distanceMaxNotPrestigeous; 
+				float computationType1 <- -(((self distance_to temp) + temp.price)-(distanceMinType1+distanceMaxNotPrestigeous))/distanceMaxNotPrestigeous;
+				float computationType2 <- -(((self distance_to temp) + temp.price)-(distanceMinType2+distanceMaxNotPrestigeous))/distanceMaxNotPrestigeous;
 				if(computationType1 < 0.0){
 					computationType1 <- 0.0;
 				}
@@ -414,6 +433,8 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 									recupWare <- recupWare + tempLoop.quantity;
 									tempLoop.target <- self.location;
 									tempLoop.distance <- tempLoop.distance + tempLoop distance_to self;
+									put true at:tempLoop.prodPlace in: presenceProd;
+									add tempLoop to: wareReceived;
 								} else {
 									create Ware number: 1{
 										quantity <- collectTemp-recupWare;
@@ -463,6 +484,8 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 									recupWare <- recupWare + tempLoop.quantity;
 									tempLoop.target <- self.location;
 									tempLoop.distance <- tempLoop.distance + tempLoop distance_to self;
+									put true at:tempLoop.prodPlace in: presenceProd;
+									add tempLoop to: wareReceived;
 								} else {
 									create Ware number: 1{
 										quantity <- collectTemp-recupWare;
@@ -542,6 +565,8 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 									recupWare <- recupWare + tempLoop.quantity;
 									tempLoop.target <- self.location;
 									tempLoop.distance <- tempLoop.distance + tempLoop distance_to self;
+									put true at:tempLoop.prodPlace in: presenceProd;
+									add tempLoop to: wareReceived;
 								} else {
 									create Ware number: 1{
 										quantity <- collectTemp-recupWare;
@@ -591,6 +616,8 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 									recupWare <- recupWare + tempLoop.quantity;
 									tempLoop.target <- self.location;
 									tempLoop.distance <- tempLoop.distance + tempLoop distance_to self;
+									put true at:tempLoop.prodPlace in: presenceProd;
+									add tempLoop to: wareReceived;
 								} else {
 									create Ware number: 1{
 										quantity <- collectTemp-recupWare;
@@ -627,13 +654,28 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 
 species Intermediary  schedules: shuffle(Intermediary){
 	int stock <- 0;
-	int capacity <- rnd(capacityInter);
+	int capacity <- /*rnd(*/capacityInter/*)*/;
 	float price <- 0.0; 
 	bool is_Producer; 
 	Producer my_prod;
 	bool is_Consumer;
 	Consumer my_consum;
 	int type; //each intermediary is specialised in a type of stone
+	map<Intermediary,float> percentageCollect;
+	
+	action initialisation{
+		float distanceMinProd <- self distance_to (closest_to(Producer where (each.type=self.type),self));
+		loop temp over: Intermediary where ((each.is_Producer)){
+			float computationPercentage <- -(((self distance_to temp) + temp.price)-(distanceMinProd+distanceMaxIntermediary))/distanceMaxIntermediary;
+			if(computationPercentage < 0.0){
+				computationPercentage <- 0.0;
+			}
+			if(computationPercentage > 1.0){
+				computationPercentage <- 1.0;
+			}
+			add temp::computationPercentage to:percentageCollect;
+			}
+	}
 	
 	reflex buying when: not is_Producer and not is_Consumer {
 		if intermediary_strategy=1 {
@@ -649,16 +691,16 @@ species Intermediary  schedules: shuffle(Intermediary){
 	
 	action buy1 { //buy only extra production
 		int collect <- 0;
-		list<Intermediary> temp <- Intermediary where (not(each.is_Consumer));
+		list<Intermediary> temp <- Intermediary where (each.is_Producer);
 		temp <- temp sort_by(each distance_to self);
 		loop tempInt over: temp{
 			if (stock<capacity and collect<capacity){
 				int collectTemp;
 				if(tempInt.is_Producer){
-				collectTemp <- min(capacity-stock,min(capacity,tempInt.stock));
+				collectTemp <- min(capacity-stock,min(capacity,round(self.percentageCollect[tempInt]*(tempInt.stock))));
 				collect <- collect+collectTemp;
 				if(collectTemp>0){
-						write name + " buy prod " + collectTemp;
+						write "Inter buy prod " + collectTemp;
 						create Ware number: 1{
 							prodPlace <- tempInt.my_prod;
 							origin <- tempInt;
@@ -668,7 +710,7 @@ species Intermediary  schedules: shuffle(Intermediary){
 						}
 						tempInt.stock <- tempInt.stock - collectTemp;
 						//tempInt.my_prod.production <- tempInt.my_prod.production + collectTemp;
-						stock <- collect;
+						stock <- stock + collect;
 					}
 				}
 			}
@@ -677,18 +719,18 @@ species Intermediary  schedules: shuffle(Intermediary){
 	
 	action buy2 { //buy as a consumer + extra production
 		int collect <- 0;
-		list<Intermediary> temp <- Intermediary where (not(each.is_Consumer));
+		list<Intermediary> temp <- Intermediary where (each.is_Producer);
 		temp <- temp sort_by(each distance_to self);
 		loop tempInt over: temp{
 			if (stock<capacity and collect<capacity){
 				int collectTemp;
 				if(tempInt.is_Producer){
-					collectTemp <- min(capacity,tempInt.stock); //buying extra production in priority
+					collectTemp <- min(capacity-stock,min(capacity,round(self.percentageCollect[tempInt]*(tempInt.stock)))); //buying extra production in priority
 					collect <- collect+collectTemp;
 					stock <- collect;
 					
 					if(collectTemp>0){
-							write "buy prod " + collectTemp;
+							write "Inter buy prod " + collectTemp;
 							create Ware number: 1{
 								prodPlace <- tempInt.my_prod;
 								origin <- tempInt;
@@ -700,10 +742,10 @@ species Intermediary  schedules: shuffle(Intermediary){
 							//tempInt.my_prod.production <- tempInt.my_prod.production + collectTemp;
 						}
 					if (stock<capacity){
-					collectTemp <- min(capacity,tempInt.my_prod.stockMax-tempInt.my_prod.production);
+					collectTemp <- min(capacity-stock,min(capacity,round(self.percentageCollect[tempInt]*(tempInt.my_prod.stockMax-tempInt.my_prod.production))));
 					collect <- collect+collectTemp;
 					if(collectTemp>0){
-							write "buy prod " + collectTemp;
+							write "Inter buy prod " + collectTemp;
 							create Ware number: 1{
 								prodPlace <- tempInt.my_prod;
 								origin <- tempInt;
@@ -716,23 +758,23 @@ species Intermediary  schedules: shuffle(Intermediary){
 						}
 					}
 				}
-				stock <- collect;
+				stock <- stock + collect;
 			}
 		}
 	}
 	
 	action buy3 { //buy as a consumer
 		int collect <- 0;
-		list<Intermediary> temp <- Intermediary where (not(each.is_Consumer));
+		list<Intermediary> temp <- Intermediary where (each.is_Producer);
 		temp <- temp sort_by(each distance_to self);
 		loop tempInt over: temp{
-			if (stock<capacity){
+			if (stock<capacity and collect<capacity){
 				int collectTemp;
 				if(tempInt.is_Producer){
-				collectTemp <- min(capacity,tempInt.my_prod.stockMax-tempInt.my_prod.production);
+				collectTemp <- min(capacity-stock,min(capacity,round(self.percentageCollect[tempInt]*(tempInt.my_prod.stockMax-tempInt.my_prod.production))));
 				collect <- collect+collectTemp;
 				if(collectTemp>0){
-						write "buy prod " + collectTemp;
+						write "Inter buy prod " + collectTemp;
 						create Ware number: 1{
 							prodPlace <- tempInt.my_prod;
 							origin <- tempInt;
@@ -746,7 +788,7 @@ species Intermediary  schedules: shuffle(Intermediary){
 				}
 			}
 		}
-		stock <- collect;
+		stock <- stock + collect;
 	}
 	
 	aspect base {
