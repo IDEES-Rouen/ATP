@@ -7,11 +7,18 @@
 
 model MetaModel
 
+//TODO : implement types of ware
 global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + shuffle(Producer){
 	int nb_init_Consumer <- 2 parameter: true;
 	int nb_init_Intermediary <- 1 parameter: true;
 	int nb_init_prod <- 2 parameter: true;
-	geometry shape <- square(200/*0*/);
+	
+	file envelopeMap_shapefile <- file("../includes/envelopeMap.shp");
+	file backMap_shapefile <- file("../includes/backMap.shp");
+	file caumont_shapefile <- file("../includes/caumont.shp");
+	file vernon_shapefile <- file("../includes/vernon.shp");
+	geometry shape <- envelope(envelopeMap_shapefile);//rectangle(1763,2370);//square(2000);
+	
 	float averageDistance <- 0.0;
 	float distanceMax <- 0.0;
 	float distanceMin <- 0.0;
@@ -25,6 +32,7 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 	float init_price <- 100.0 parameter: true;
 	
 	init {
+		create BackMap from: backMap_shapefile;
 		do createProd(nb_init_prod);
 		do createInter(nb_init_Intermediary);
 		do createConsum(nb_init_Consumer);
@@ -56,6 +64,7 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 	
 	action createConsum(int nb_consum){
 		create Consumer number: nb_consum{
+			location <- any_location_in(first(BackMap));
 			create Intermediary number: 1{
 				location <-myself.location;
 				is_Consumer <- true;
@@ -81,6 +90,7 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 	
 	action createProd(int nb_prod){
 		create Producer number: nb_prod{
+			location <- any_location_in(first(BackMap));
 			create Intermediary number: 1{
 				location <-myself.location;
 				is_Consumer <- false;
@@ -105,6 +115,7 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 	
 	action createInter(int nb_inter){
 		create Intermediary number: nb_inter{
+			location <- any_location_in(first(BackMap));
 			is_Producer <- false;
 			my_prod <- nil;
 			is_Consumer <- false;
@@ -142,15 +153,23 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 		if(not(empty(Ware))){
 			loop tempConsum over: Consumer where not(each.is_built){
 				loop tempProd over: tempConsum.presenceProd.keys{
-					if ((tempProd !=nil) and bool(tempConsum.presenceProd[tempProd])){
-						create PolygonWare number: 1{
-							placeProd <- tempProd;
-							consumPlace <- tempConsum;
-							shape <- line([placeProd,consumPlace],150.0);
-						}	
+					if ((tempProd !=nil) and tempConsum.presenceProd[tempProd]){
+						bool exists<-false;
+						loop tempPoly over: PolygonWare{
+							if((tempPoly.placeProd = tempProd)and (tempPoly.consumPlace=tempConsum)){
+								exists<-true;
+							}
+						}
+						if(not exists){
+							create PolygonWare number: 1{
+								placeProd <- tempProd;
+								consumPlace <- tempConsum;
+								shape <- line([placeProd,consumPlace],150.0);
+							}
+						}
 					}
 				}
-			}
+			}	
 		}
 	}
 	
@@ -178,6 +197,8 @@ species Consumer {
 		my_inter.stock <- collect;
 	}
 	
+	//TODO : Check the buyng procedure
+	//TODO : get information to draw lines and bar chart
 	reflex buying { //buying to all the intermediairies which are not consumer
 //		do buy0;
 		do buy1; //replace depending on the method tested
@@ -223,8 +244,10 @@ species Consumer {
 							target <- myself.location;
 							distance <- myself distance_to tempInt.my_prod;
 							put true at:self.prodPlace in: myself.presenceProd;
+							add self to: myself.wareReceived;
 						}
 					} else {
+						//TODO : check this part with the stoneModel
 						write "buy inter " + collectTemp;
 						list<Ware> tempWares <- Ware where(each.location = tempInt.location);
 						bool endCollecting <- false;
@@ -235,6 +258,8 @@ species Consumer {
 									recupWare <- recupWare + tempLoop.quantity;
 									tempLoop.target <- self.location;
 									tempLoop.distance <- tempLoop.distance + tempLoop distance_to self;
+									put true at:tempLoop.prodPlace in: presenceProd;
+									add tempLoop to: wareReceived;
 								} else {
 									create Ware number: 1{
 										quantity <- collectTemp-recupWare;
@@ -243,6 +268,7 @@ species Consumer {
 										origin <- tempLoop.origin;
 										prodPlace <- tempLoop.prodPlace;
 										put true at:self.prodPlace in: myself.presenceProd;
+										add self to: myself.wareReceived;
 									}
 									tempLoop.quantity <- tempLoop.quantity - (collectTemp-recupWare);
 									recupWare <- collectTemp;
@@ -334,6 +360,7 @@ species Producer{
 		}
 	}
 	
+	//TODO : Add the information at the consummer level
 	action sell0{
 		//random choice
 		loop tempInt over: shuffle(Intermediary where not(each.is_Producer)){
@@ -375,6 +402,8 @@ species Producer{
 										quantity <- exchange;
 										target <- tempInt.my_consum.location;
 										distance <- myself distance_to tempInt.my_consum;
+										put true at:self.prodPlace in: tempInt.my_consum.presenceProd;
+										add self to: tempInt.my_consum.wareReceived;
 									}
 								} else {
 									write "sell inter " + tempInt + " " + exchange;
@@ -415,11 +444,11 @@ species Producer{
 	}
 	
 	aspect base {
-		if (stock>0){
-			draw triangle(stock) color:#red;
-		}else {
-			draw triangle(1) color:#red;
-		}
+//		if (stock>0){
+//			draw triangle(stock) color:#red;
+//		}else {
+			draw triangle(10) color:#red;
+//		}
 	}
 }
 
@@ -460,6 +489,12 @@ species PolygonWare { //Used to draw the polygon of wares depending on their pla
 	}
 }
 
+species BackMap {//Used for the display
+	aspect base{
+		draw shape border: #black empty:true ;
+	}
+}
+
 experiment Spreading type: gui {
 
 	
@@ -469,13 +504,14 @@ experiment Spreading type: gui {
 	// Define attributes, actions, a init section and behaviors if necessary
 	// init { }
 	
-	
+	//TODO : add other charts from stone model
 	output {
 	// Define inspectors, browsers and displays here
 	
 	// inspect one_or_several_agents;
 	//
 		display main_display background: #lightgray { 
+			species BackMap aspect:base;
 			species Consumer aspect:base;
 			species Intermediary aspect:base;
 			species Producer aspect:base;
@@ -483,7 +519,7 @@ experiment Spreading type: gui {
 			species PolygonWare transparency: 0.5;
 		}
 		
-		display chart /*refresh:every(10.0)*/  {
+		display distance /*refresh:every(10.0)*/  {
 			chart "distance of wares" type: series {
 				data "average distance" value: averageDistance color: #green;
 				data "distance max" value: distanceMax color: #red;
