@@ -1,13 +1,13 @@
 /***
 * Name: StoneModel
 * Author: mathieu
-* Description: adaptation of the meta-model to the case of stone sprading in middle-age
+* Description: adaptation of the meta-model to the case of stone spreading in middle-age
 * Tags: Tag1, Tag2, TagN
 ***/
 
 model StoneModel
 
-global schedules: [world] + Consumer + Intermediary + Ware + Producer {
+global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) + shuffle(Producer)*/ {
 	int nb_init_Consumer_prestigious <- 2 parameter: true;
 	int nb_init_Consumer_not_prestigious <- 2 parameter: true;
 	int nb_init_Intermediary_type1 <- 1 parameter: true;
@@ -46,7 +46,7 @@ global schedules: [world] + Consumer + Intermediary + Ware + Producer {
 	
 	init {
 		create BackMap from: backMap_shapefile;
-		if(nb_init_prod_type1=2){
+//		if(nb_init_prod_type1=2){
 		create Producer from: caumont_shapefile number: 1{
 			type<-1;
 //			location <- any_location_in(first(BackMap));
@@ -83,9 +83,9 @@ global schedules: [world] + Consumer + Intermediary + Ware + Producer {
 				}
 			}
 		}
-		} else {
-			do createProd(nb_init_prod_type1,1);
-		}
+//		} else {
+			do createProd(nb_init_prod_type1-2,1);
+//		}
 		do createProd(nb_init_prod_type2,2);
 		do createInter(nb_init_Intermediary_type1,1);
 		do createInter(nb_init_Intermediary_type1,2);
@@ -291,7 +291,6 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 	int time_to_be_built <- 0;
 	
 	action initialisation{
-		//TODO : adapt this computation to the buying strategy from the consumer
 		float distanceMinType1 <- 0.0;
 		float distanceMinType2 <- 0.0;
 		if(consumer_strategy=1){
@@ -691,7 +690,7 @@ species Intermediary  schedules: shuffle(Intermediary){
 	
 	action buy1 { //buy only extra production
 		int collect <- 0;
-		list<Intermediary> temp <- Intermediary where (each.is_Producer);
+		list<Intermediary> temp <- Intermediary where (each.is_Producer and each.type=self.type);
 		temp <- temp sort_by(each distance_to self);
 		loop tempInt over: temp{
 			if (stock<capacity and collect<capacity){
@@ -719,7 +718,7 @@ species Intermediary  schedules: shuffle(Intermediary){
 	
 	action buy2 { //buy as a consumer + extra production
 		int collect <- 0;
-		list<Intermediary> temp <- Intermediary where (each.is_Producer);
+		list<Intermediary> temp <- Intermediary where (each.is_Producer and each.type=self.type);
 		temp <- temp sort_by(each distance_to self);
 		loop tempInt over: temp{
 			if (stock<capacity and collect<capacity){
@@ -765,7 +764,7 @@ species Intermediary  schedules: shuffle(Intermediary){
 	
 	action buy3 { //buy as a consumer
 		int collect <- 0;
-		list<Intermediary> temp <- Intermediary where (each.is_Producer);
+		list<Intermediary> temp <- Intermediary where (each.is_Producer and each.type=self.type);
 		temp <- temp sort_by(each distance_to self);
 		loop tempInt over: temp{
 			if (stock<capacity and collect<capacity){
@@ -903,7 +902,7 @@ experiment Spreading type: gui {
 		}
 
 		display second_display background: #lightgray {
-			image "../includes/mapStone.png";
+			image "../includes/mapStone.png" transparency:0.5;
 			species PolygonWare;
 //			species BackMap aspect:base;
 		}
