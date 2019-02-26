@@ -15,12 +15,14 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	int nb_init_prod_type1 <- 2 parameter: true;
 	int nb_init_prod_type2 <- 2 parameter: true;
 	
+	bool use_map <- true parameter:true;
+	
 	file envelopeMap_shapefile <- file("../includes/envelopeMap.shp");
 	file backMap_shapefile <- file("../includes/backMap.shp");
 	//TODO : Only one shapefile with the important quarry
 	file caumont_shapefile <- file("../includes/caumont.shp");
-	file vernon_shapefile <- file("../includes/vernon.shp");
-	geometry shape <- envelope(envelopeMap_shapefile);//rectangle(1763,2370);//square(2000);
+//	file vernon_shapefile <- file("../includes/vernon.shp");
+	geometry shape <- square(2000);//<- envelope(envelopeMap_shapefile);//rectangle(1763,2370);//square(2000);
 	
 	float averageDistance <- 0.0;
 	float distanceMax <- 0.0;
@@ -46,10 +48,18 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	int producer_strategy <- 1 parameter: true min: 1 max: 2; //1: produce just what has been oredered. 2: produce the maximum it can
 	
 	init {
+		if(use_map){
+			shape <- envelope(envelopeMap_shapefile);
+			create BackMap from: backMap_shapefile;
+		} else {
+			shape <- square(2000);
+			create BackMap number:1{
+				shape <- square(2000);
+			}
+		}
 		//TODO : add a button to use or not the map (or simulate in a non spatial environment)
-		create BackMap from: backMap_shapefile;
-//		if(nb_init_prod_type1=2){
-		create Producer from: caumont_shapefile number: 1{
+		if(use_map){
+		create Producer from: caumont_shapefile /*number: 1*/{
 			type<-1;
 //			location <- any_location_in(first(BackMap));
 			create Intermediary number: 1{
@@ -67,27 +77,27 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 				}
 			}
 		}
-		create Producer from: vernon_shapefile number: 1{
-			type<-1;
-//			location <- any_location_in(first(BackMap));
-			create Intermediary number: 1{
-				location <-myself.location;
-				is_Consumer <- false;
-				my_consum <- nil;
-				is_Producer <- true;
-				my_prod <- myself;
-				capacity <- myself.stockMax;
-				stock <- myself.stock;
-				type<-1;
-				
-				ask myself{
-					my_inter <- myself;
-				}
-			}
-		}
-//		} else {
-			do createProd(nb_init_prod_type1-2,1);
+//		create Producer from: vernon_shapefile number: 1{
+//			type<-1;
+////			location <- any_location_in(first(BackMap));
+//			create Intermediary number: 1{
+//				location <-myself.location;
+//				is_Consumer <- false;
+//				my_consum <- nil;
+//				is_Producer <- true;
+//				my_prod <- myself;
+//				capacity <- myself.stockMax;
+//				stock <- myself.stock;
+//				type<-1;
+//				
+//				ask myself{
+//					my_inter <- myself;
+//				}
+//			}
 //		}
+		} else {
+			do createProd(nb_init_prod_type1,1);
+		}
 		do createProd(nb_init_prod_type2,2);
 		do createInter(nb_init_Intermediary_type1,1);
 		do createInter(nb_init_Intermediary_type1,2);
@@ -199,6 +209,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	}
 	
 	//TODO : create dynamism by adding new consumers, new producers, deleting some producers, reactivate some consumers built, activate the reusability of some buildings (activated during 1 year)
+	//TODO : update the tables of computation for each intermediary buyer.
 	
 	reflex displayReflex {
 		write "-------------------------";
@@ -242,7 +253,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 		}
 	}
 	
-	reflex stop when: cycle>500{
+	reflex stop /*when: cycle>500*/{
 		bool isFinished <- true;
 		loop tempConso over: Consumer{
 			if not (tempConso.is_built){
@@ -319,6 +330,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 			add temp::false to:presenceProd;
 			add temp::0.0 to: quantityPerProd;
 		}
+		//TODO : compute value for consumers too (used when re-use on
 		loop temp over: (Intermediary where (not(each.is_Consumer))){
 			if prestigious{
 				float computationType1 <- -(((self distance_to temp) + temp.price)-(distanceMinType1+distanceMaxPrestigeous))/distanceMaxPrestigeous; 
@@ -399,8 +411,9 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 		}
 	}
 	
-	//TODO : clean by using less copy/paste
-	//TODO : integrate the possibility to buy from another consumer which is reusable
+	//TODO : clean by using less copy/paste (one buy action per type)
+	//TODO : integrate the possibility to buy from another consumer which is reusable (but not self)
+	//TODO : buy only to producers abled.
 	action buy1Type1 {
 		list<Intermediary> temp <- Intermediary where (not(each.is_Consumer) and each.type=1);
 		temp <- temp sort_by((each distance_to self) + each.price);
@@ -695,6 +708,7 @@ species Intermediary  schedules: shuffle(Intermediary){
 		}
 	}
 	
+	//TODO : buy only to producers abled.
 	action buy1 { //buy only extra production
 		int collect <- 0;
 		list<Intermediary> temp <- Intermediary where (each.is_Producer and each.type=self.type);
@@ -808,6 +822,7 @@ species Intermediary  schedules: shuffle(Intermediary){
 	}
 }
 
+//TODO : add the possibility to be disabled
 species Producer  schedules: shuffle(Producer){
 	int production <- 0 ;
 	int productionBefore;
@@ -909,9 +924,9 @@ experiment Spreading type: gui {
 		}
 
 		display second_display background: #lightgray {
-			image "../includes/mapStone.png" transparency:0.5;
+//			image "../includes/mapStone.png" transparency:0.5;
 			species PolygonWare;
-//			species BackMap aspect:base;
+			species BackMap aspect:base;
 		}
 
 		display distance /*refresh:every(10.0)*/  {
