@@ -17,6 +17,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	
 	file envelopeMap_shapefile <- file("../includes/envelopeMap.shp");
 	file backMap_shapefile <- file("../includes/backMap.shp");
+	//TODO : Only one shapefile with the important quarry
 	file caumont_shapefile <- file("../includes/caumont.shp");
 	file vernon_shapefile <- file("../includes/vernon.shp");
 	geometry shape <- envelope(envelopeMap_shapefile);//rectangle(1763,2370);//square(2000);
@@ -45,6 +46,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	int producer_strategy <- 1 parameter: true min: 1 max: 2; //1: produce just what has been oredered. 2: produce the maximum it can
 	
 	init {
+		//TODO : add a button to use or not the map (or simulate in a non spatial environment)
 		create BackMap from: backMap_shapefile;
 //		if(nb_init_prod_type1=2){
 		create Producer from: caumont_shapefile number: 1{
@@ -196,6 +198,8 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 		}
 	}
 	
+	//TODO : create dynamism by adding new consumers, new producers, deleting some producers, reactivate some consumers built, activate the reusability of some buildings (activated during 1 year)
+	
 	reflex displayReflex {
 		write "-------------------------";
 		averageDistance <- 0.0;
@@ -238,7 +242,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 		}
 	}
 	
-	reflex stop{
+	reflex stop when: cycle>500{
 		bool isFinished <- true;
 		loop tempConso over: Consumer{
 			if not (tempConso.is_built){
@@ -268,6 +272,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	
 }
 
+//TODO : Add the possibility to re-use consumers as producers
 species Consumer schedules: shuffle(Consumer where (not(each.is_built) and (each.prestigious and each.priority))) + 
 shuffle(Consumer where (not(each.is_built) and (each.prestigious and not(each.priority)))) + 
 shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and each.priority))) + 
@@ -395,6 +400,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 	}
 	
 	//TODO : clean by using less copy/paste
+	//TODO : integrate the possibility to buy from another consumer which is reusable
 	action buy1Type1 {
 		list<Intermediary> temp <- Intermediary where (not(each.is_Consumer) and each.type=1);
 		temp <- temp sort_by((each distance_to self) + each.price);
@@ -470,7 +476,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 			if (collectType1<needType1){
 				int collectTemp;
 				if (not(tempInt.is_Producer)and not(tempInt.is_Consumer)){
-				collectTemp <- min(needType1-collectType1,tempInt.stock);
+				collectTemp <- min(needType1-collectType1,round(self.percentageCollect[tempInt]*tempInt.stock));
 				collectType1 <- collectType1+collectTemp;
 				if(collectTemp>0){
 						write self.name + " buy inter Type 1 " + collectTemp;
@@ -515,6 +521,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 	}
 	
 	reflex buyingType2 when: not is_built{
+		//TODO : Remove the switch of need because of priority
 		if(priority){
 			needType2 <- need - collectType1;
 			needType1 <- collectType1;
