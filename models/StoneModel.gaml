@@ -19,7 +19,6 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	
 	file envelopeMap_shapefile <- file("../includes/envelopeMap.shp");
 	file backMap_shapefile <- file("../includes/backMap.shp");
-	//TODO : Only one shapefile with the important quarry
 	file caumont_shapefile <- file("../includes/caumont.shp");
 //	file vernon_shapefile <- file("../includes/vernon.shp");
 	geometry shape <- square(2000);//<- envelope(envelopeMap_shapefile);//rectangle(1763,2370);//square(2000);
@@ -57,44 +56,25 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 				shape <- square(2000);
 			}
 		}
-		//TODO : add a button to use or not the map (or simulate in a non spatial environment)
 		if(use_map){
-		create Producer from: caumont_shapefile /*number: 1*/{
-			type<-1;
-//			location <- any_location_in(first(BackMap));
-			create Intermediary number: 1{
-				location <-myself.location;
-				is_Consumer <- false;
-				my_consum <- nil;
-				is_Producer <- true;
-				my_prod <- myself;
-				capacity <- myself.stockMax;
-				stock <- myself.stock;
+			create Producer from: caumont_shapefile /*number: 1*/{
 				type<-1;
-				
-				ask myself{
-					my_inter <- myself;
+	//			location <- any_location_in(first(BackMap));
+				create Intermediary number: 1{
+					location <-myself.location;
+					is_Consumer <- false;
+					my_consum <- nil;
+					is_Producer <- true;
+					my_prod <- myself;
+					capacity <- myself.stockMax;
+					stock <- myself.stock;
+					type<-1;
+					
+					ask myself{
+						my_inter <- myself;
+					}
 				}
 			}
-		}
-//		create Producer from: vernon_shapefile number: 1{
-//			type<-1;
-////			location <- any_location_in(first(BackMap));
-//			create Intermediary number: 1{
-//				location <-myself.location;
-//				is_Consumer <- false;
-//				my_consum <- nil;
-//				is_Producer <- true;
-//				my_prod <- myself;
-//				capacity <- myself.stockMax;
-//				stock <- myself.stock;
-//				type<-1;
-//				
-//				ask myself{
-//					my_inter <- myself;
-//				}
-//			}
-//		}
 		} else {
 			do createProd(nb_init_prod_type1,1);
 		}
@@ -304,6 +284,10 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 	map<Intermediary,float> percentageCollect; //associating each prod of type 1 with a percentage collected on the max possible collected per prod
 	
 	bool is_built<-false;
+	bool is_reused<-false;
+	int quantity_reused_type1<-0; //used to indicate which quantity of stone previously collected may be used on other construction site (if not, back in collect)
+	int quantity_reused_type2<-0;
+	
 	int time_to_be_built <- 0;
 	
 	action initialisation{
@@ -330,7 +314,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 			add temp::false to:presenceProd;
 			add temp::0.0 to: quantityPerProd;
 		}
-		//TODO : compute value for consumers too (used when re-use on
+		//TODO : compute value for consumers too (used when re-use is on)
 		loop temp over: (Intermediary where (not(each.is_Consumer))){
 			if prestigious{
 				float computationType1 <- -(((self distance_to temp) + temp.price)-(distanceMinType1+distanceMaxPrestigeous))/distanceMaxPrestigeous; 
@@ -403,24 +387,18 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 	}
 	
 	reflex buyingType1 when: not is_built{
-		if(consumer_strategy=1){
-			do buy1Type1;
-		}
-		if(consumer_strategy=2){
-			do buy2Type1;
-		}
+		do buyType1(consumer_strategy);
 	}
 	
-	//TODO : clean by using less copy/paste (one buy action per type)
 	//TODO : integrate the possibility to buy from another consumer which is reusable (but not self)
-	//TODO : buy only to producers abled.
-	action buy1Type1 {
+	//TODO : buy only to producers activated.
+	action buyType1(int strategy){
 		list<Intermediary> temp <- Intermediary where (not(each.is_Consumer) and each.type=1);
 		temp <- temp sort_by((each distance_to self) + each.price);
 		loop tempInt over: temp{
 			if (collectType1<needType1){
 				int collectTemp;
-				if(tempInt.is_Producer){
+				if(tempInt.is_Producer and strategy=1){
 				collectTemp <- min(needType1-collectType1,round(self.percentageCollect[tempInt]*(tempInt.my_prod.stockMax-tempInt.my_prod.production)));
 				collectType1 <- collectType1+collectTemp;
 				if(collectTemp>0){
@@ -437,7 +415,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 						//tempInt.stock <- tempInt.stock - collectTemp;
 						tempInt.my_prod.production <- tempInt.my_prod.production + collectTemp;
 					}
-				} else {
+				} else if(not tempInt.is_Producer){
 					collectTemp <- min(needType1-collectType1,round(self.percentageCollect[tempInt]*tempInt.stock));
 					collectType1 <- collectType1+collectTemp;
 					if(collectTemp>0){
@@ -481,64 +459,12 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 		my_inter.capacity <- needType1;
 		my_inter.stock <- collectType1;
 	}
-	
-	action buy2Type1 {
-		list<Intermediary> temp <- Intermediary where (not(each.is_Consumer) and each.type=1);
-		temp <- temp sort_by((each distance_to self) + each.price);
-		loop tempInt over: temp{
-			if (collectType1<needType1){
-				int collectTemp;
-				if (not(tempInt.is_Producer)and not(tempInt.is_Consumer)){
-				collectTemp <- min(needType1-collectType1,round(self.percentageCollect[tempInt]*tempInt.stock));
-				collectType1 <- collectType1+collectTemp;
-				if(collectTemp>0){
-						write self.name + " buy inter Type 1 " + collectTemp;
-						list<Ware> tempWares <- Ware where(each.location = tempInt.location);
-						bool endCollecting <- false;
-						int recupWare<-0;
-						loop tempLoop over: tempWares{
-							if(not endCollecting){
-								if (recupWare+tempLoop.quantity <= collectTemp) {
-									recupWare <- recupWare + tempLoop.quantity;
-									tempLoop.target <- self.location;
-									tempLoop.distance <- tempLoop.distance + tempLoop distance_to self;
-									put true at:tempLoop.prodPlace in: presenceProd;
-									add tempLoop to: wareReceived;
-								} else {
-									create Ware number: 1{
-										quantity <- collectTemp-recupWare;
-										target <- myself.location;
-										distance <- tempLoop.distance + self distance_to myself;
-										origin <- tempLoop.origin;
-										prodPlace <- tempLoop.prodPlace;
-										put true at:self.prodPlace in: myself.presenceProd;
-										add self to: myself.wareReceived;
-									}
-									tempLoop.quantity <- tempLoop.quantity - (collectTemp-recupWare);
-									recupWare <- collectTemp;
-								}
-								if(recupWare >= collectTemp){
-									endCollecting <- true;
-								}
-							}
-						}
-					}
-					ask tempInt{
-						stock <- stock - collectTemp;
-					}	
-				}
-			}
-		}
-		my_inter.capacity <- needType1;
-		my_inter.stock <- collectType1;
-	}
-	
+
 	reflex buyingType2 when: not is_built{
-		//TODO : Remove the switch of need because of priority
-		if(priority){
-			needType2 <- need - collectType1;
-			needType1 <- collectType1;
-		}
+//		if(priority){
+//			needType2 <- need - collectType1;
+//			needType1 <- collectType1;
+//		}
 		if(consumer_strategy=1){
 			do buy1Type2;
 		}
@@ -547,6 +473,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 		}
 	}
 	
+	//TODO : clean by using less copy/paste (one buy action per type)
 	action buy1Type2 {
 		list<Intermediary> temp <- Intermediary where (not(each.is_Consumer) and each.type=2);
 		temp <- temp sort_by((each distance_to self) + each.price);
@@ -831,6 +758,8 @@ species Producer  schedules: shuffle(Producer){
 	int type; //type 1 is superior to type 2;
 	Intermediary my_inter;
 	rgb color <- rgb(rnd(255),rnd(255),rnd(255));
+	
+	bool activated <- true;//used to display and schedulle only activated producer, but keeping trace of older production sites.
 	
 	reflex produce {
 		if producer_strategy=1{
