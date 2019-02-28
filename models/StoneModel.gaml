@@ -190,6 +190,9 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	
 	//TODO : create dynamism by adding new consumers, new producers, deleting some producers, reactivate some consumers built, activate the reusability of some buildings (activated during 1 year)
 	//TODO : update the tables of computation for each intermediary buyer.
+	reflex updateSimulation{
+		
+	}
 	
 	reflex displayReflex {
 		write "-------------------------";
