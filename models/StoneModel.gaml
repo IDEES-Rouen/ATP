@@ -23,6 +23,8 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 //	file vernon_shapefile <- file("../includes/vernon.shp");
 	geometry shape <- square(2000);//<- envelope(envelopeMap_shapefile);//rectangle(1763,2370);//square(2000);
 	
+	bool createNewProducers <- false parameter: true;
+	
 	float averageDistance <- 0.0;
 	float distanceMax <- 0.0;
 	float distanceMin <- 0.0;
@@ -46,7 +48,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	float proba_reuse <- 0.0 parameter: true min: 0.0 max: 1.0;
 	
 	int consumer_strategy <- 1 parameter: true min: 1 max: 2; //1:buy to producers and intermediaries. 2:only buy to inermediairies.
-	int intermediary_strategy <- 1 parameter: true min:1 max: 3; //1: buy the stock. 2: buy stock and place orders. 3: only place orders.
+	int intermediary_strategy <- 3 parameter: true min:1 max: 3; //1: buy the stock. 2: buy stock and place orders. 3: only place orders.
 	int producer_strategy <- 1 parameter: true min: 1 max: 2; //1: produce just what has been oredered. 2: produce the maximum it can
 	
 	init {
@@ -337,26 +339,33 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 	action initialisation{
 		float distanceMinType1 <- 0.0;
 		float distanceMinType2 <- 0.0;
-		if(prestigious){
-			distanceMinType2 <- distanceMaxPrestigeous;
-		} else {
-			distanceMinType2 <- distanceMaxNotPrestigeous;
+		if(createNewProducers){
+			if(prestigious){
+				distanceMinType2 <- distanceMaxPrestigeous;
+			} else {
+				distanceMinType2 <- distanceMaxNotPrestigeous;
+			}
 		}
 		if(consumer_strategy=1){
 			Intermediary tempType1 <- closest_to(Intermediary where ((each.type=1) and not each.is_Consumer),self);
-//			Intermediary tempType2 <- closest_to(Intermediary where ((each.type=2) and not each.is_Consumer),self);
+			Intermediary tempType2 <- closest_to(Intermediary where ((each.type=2) and not each.is_Consumer),self);
 			distanceMinType1 <- self distance_to tempType1;
-//			distanceMinType2 <- self distance_to tempType2;
 			distanceMinType1 <- distanceMinType1 + tempType1.price;
-//			distanceMinType2 <- distanceMinType2 + tempType2.price;
+			if(!createNewProducers){
+				distanceMinType2 <- self distance_to tempType2;
+				distanceMinType2 <- distanceMinType2 + tempType2.price;
+			}
 		}
 		if(consumer_strategy=2){
 			Intermediary tempType1 <- closest_to(Intermediary where ((each.type=1) and (not(each.is_Consumer) and not(each.is_Producer))),self);
-//			Intermediary tempType2 <- closest_to(Intermediary where ((each.type=2) and (not(each.is_Consumer) and not(each.is_Producer))),self);
+			Intermediary tempType2 <- closest_to(Intermediary where ((each.type=2) and (not(each.is_Consumer) and not(each.is_Producer))),self);
 			distanceMinType1 <- self distance_to tempType1;
-//			distanceMinType2 <- self distance_to tempType2;
 			distanceMinType1 <- distanceMinType1 + tempType1.price;
-//			distanceMinType2 <- distanceMinType2 + tempType2.price;
+
+			if(!createNewProducers){
+				distanceMinType2 <- self distance_to tempType2;
+				distanceMinType2 <- distanceMinType2 + tempType2.price;
+			}		
 		}
 		
 		loop temp over: Producer{
@@ -590,7 +599,9 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 //			needType1 <- collectType1;
 //		}
 	//check if there is somewhere to buy. If no, activate the closer producer or create a new one. Then buy.
+	if(createNewProducers){
 		do activateProducer;
+	}
 		do buyType2(consumer_strategy);
 	}
 	
@@ -948,7 +959,9 @@ species Producer  schedules: shuffle(Producer){
 			production <- 0;
 			stock <- 0;
 			if (productionBefore <=0 and type=2) {
-				do desactivation;
+				if(createNewProducers){
+					do desactivation;
+				}
 			}
 		}
 		if producer_strategy=2{
