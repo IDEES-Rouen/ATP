@@ -36,7 +36,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	int consumRateFixed <- 500 parameter:true;
 	float percentageType1Prestigeous <- 0.0 parameter: true min: 0.0 max: 1.0; //between 0 and 1
 	float percentageType1NotPrestigeous <- 0.0 parameter: true min: 0.0 max: 1.0; //between 0 and 1
-	float distanceMaxPrestigeous <- 1000.0 parameter:true;
+	float distanceMaxPrestigeous <- 500.0 parameter:true;
 	float distanceMaxNotPrestigeous <- 100.0 parameter:true;
 	float distanceMaxIntermediary <- 1500.0 parameter:true;
 	int capacityInter <- 30 parameter: true;
@@ -46,6 +46,11 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	
 	float proba_build_again <- 0.0 parameter: true min: 0.0 max: 1.0;
 	float proba_reuse <- 0.0 parameter: true min: 0.0 max: 1.0;
+	int newConsumerPrestigiousPrioritary <- 0 parameter: true; //number of new consumerprestigious and prioritary
+	int newConsumerPrestigiousNotPrioritary <- 0 parameter: true; //number of new consumerprestigious and prioritary
+	int newConsumerNotPrestigiousPrioritary <- 0 parameter: true; //number of new consumerprestigious and prioritary
+	int newConsumerNotPrestigiousNotPrioritary <- 0 parameter: true; //number of new consumerprestigious and prioritary
+	float proba_new_construction <- 0.0 parameter: true min: 0.0 max: 1.0;
 	
 	int consumer_strategy <- 1 parameter: true min: 1 max: 2; //1:buy to producers and intermediaries. 2:only buy to inermediairies.
 	int intermediary_strategy <- 3 parameter: true min:1 max: 3; //1: buy the stock. 2: buy stock and place orders. 3: only place orders.
@@ -195,8 +200,6 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 		}
 	}
 	
-	//TODO : create dynamism by adding new consumers, new producers, deleting some producers, reactivate some consumers built, activate the reusability of some buildings (activated during 1 year)
-	//TODO : update the tables of computation for each new intermediary buyer.
 	reflex updateSimulation{
 		//Re-building (loop over all consumers built, proba to augment the needs and is_built is false)
 		loop tempConsum over: Consumer where (each.is_built){
@@ -232,7 +235,35 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 		}
 		
 		//creating new consumers (initialize them and add them o others intermediary buyers as potential re-usability)
-		
+		if(flip(proba_new_construction)){
+			do createConsum2(newConsumerPrestigiousPrioritary,true,true);
+			do createConsum2(newConsumerPrestigiousNotPrioritary,true,false);
+			do createConsum2(newConsumerNotPrestigiousPrioritary,false,true);
+			do createConsum2(newConsumerNotPrestigiousNotPrioritary,false,false);
+		}
+	}
+	
+	action createConsum2(int nb_conso, bool prestig, bool prio){
+		create Consumer number: nb_conso{
+			location <- any_location_in(first(BackMap));
+			prestigious <- prestig;
+			priority <- prio;
+			create Intermediary number: 1{
+				location <-myself.location;
+				is_Consumer <- true;
+				my_consum <- myself;
+				is_Producer <- false;
+				my_prod <- nil;
+				capacity <- myself.need;
+				stock <- myself.collect;
+				type <-0;
+				
+				ask myself{
+					my_inter <- myself;
+				}
+			}
+			do initialisation;
+		}
 	}
 	
 	reflex displayReflex {
@@ -278,12 +309,14 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	}
 	
 	reflex stop /*when: cycle>500*/{
-		//TODO : finish after a fixed number of cycle
 		bool isFinished <- true;
 		loop tempConso over: Consumer{
 			if not (tempConso.is_built){
 				isFinished <- false;
 			}
+		}
+		if(cycle>500){
+			isFinished <- true;
 		}
 		if isFinished {
 			int builtTimeMax<-first(Consumer).time_to_be_built;
@@ -308,7 +341,6 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	
 }
 
-//TODO : Add the possibility to re-use consumers as producers
 species Consumer schedules: shuffle(Consumer where (not(each.is_built) and (each.prestigious and each.priority))) + 
 shuffle(Consumer where (not(each.is_built) and (each.prestigious and not(each.priority)))) + 
 shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and each.priority))) + 
@@ -338,7 +370,6 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 	float distanceMinType1 <- 0.0;
 	float distanceMinType2 <- 0.0;
 	
-	//TODO : change initialisation to not compute a minimal distance for type 2 (take a min distance as a parameter)
 	action initialisation{
 		
 		if(createNewProducers){
@@ -616,7 +647,6 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 		
 	}
 	
-	//TODO : debug this part(why so long sometimes to use a created prod)
 	action createProducerType2(Consumer test,float distance){
 		create Producer number: 1{
 			type<-2;
@@ -667,7 +697,6 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 		}
 	}
 	
-	//TODO : if can't buy, activate/create a new producers in the good range.
 	action buyType2(int strategy){
 		list<Intermediary> temp <- Intermediary where (/*not(each.is_Consumer) and */each.type=2 or each.type=0);
 		temp <- temp sort_by((each distance_to self) + each.price);
@@ -820,7 +849,6 @@ species Intermediary  schedules: shuffle(Intermediary){
 		}
 	}
 	
-	//TODO : buy only to producers activated.
 	action buy1 { //buy only extra production
 		int collect <- 0;
 		list<Intermediary> temp <- Intermediary where (each.is_Producer and each.type=self.type and each.my_prod.activated);
@@ -963,7 +991,6 @@ species Producer  schedules: shuffle(Producer){
 		}
 	}
 	
-	//TODO : manage activation of each producer.
 	action desactivation{
 		//if has not produce anything previous year, is desactivated
 		activated <- false;
