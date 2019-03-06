@@ -335,10 +335,12 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 	
 	int time_to_be_built <- 0;
 	
+	float distanceMinType1 <- 0.0;
+	float distanceMinType2 <- 0.0;
+	
 	//TODO : change initialisation to not compute a minimal distance for type 2 (take a min distance as a parameter)
 	action initialisation{
-		float distanceMinType1 <- 0.0;
-		float distanceMinType2 <- 0.0;
+		
 		if(createNewProducers){
 			if(prestigious){
 				distanceMinType2 <- distanceMaxPrestigeous;
@@ -425,9 +427,9 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 				if(temp.is_Consumer){
 					float computationTemp;
 					if(temp.my_consum.prestigious){
-						computationTemp <- (distanceMaxPrestigeous-((self distance_to temp)))/distanceMaxPrestigeous;
+						computationTemp <- -(((self distance_to temp) + temp.price)-(distanceMinType2+distanceMaxPrestigeous))/distanceMaxPrestigeous;
 					} else {
-						computationTemp <- (distanceMaxNotPrestigeous-((self distance_to temp)))/distanceMaxNotPrestigeous;
+						computationTemp <- -(((self distance_to temp) + temp.price)-(distanceMinType2+distanceMaxNotPrestigeous))/distanceMaxNotPrestigeous;
 					}
 					if(computationTemp < 0.0){
 						computationTemp <- 0.0;
@@ -464,8 +466,6 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 		my_inter.capacity <- need;
 		my_inter.stock <- collect;
 	}
-	
-	//TODO : activate or create a producer of type 2 if there is no one accessible.
 	
 	action updateQuantityPerProd{
 		loop temp over:wareReceived{
@@ -509,11 +509,11 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 						//tempInt.stock <- tempInt.stock - collectTemp;
 						tempInt.my_prod.production <- tempInt.my_prod.production + collectTemp;
 					}
-				} else if(not tempInt.is_Producer){
+				} else if((not(tempInt.is_Producer)) and (not(tempInt.is_Consumer))){
 					collectTemp <- min(needType1-collectType1,round(self.percentageCollect[tempInt]*tempInt.stock));
 					collectType1 <- collectType1+collectTemp;
 					if(collectTemp>0){
-						write self.name + " buy inter Type 1 " + collectTemp;
+						write self.name + " buy inter Type 1 " + collectTemp + " " + tempInt.name;
 						list<Ware> tempWares <- Ware where(each.location = tempInt.location);
 						bool endCollecting <- false;
 						int recupWare<-0;
@@ -607,21 +607,13 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 	
 	action activateProducer{
 		Intermediary tempProd <- (Intermediary where (each.is_Producer and (each.type=2 or each.type=0))) closest_to self;
-		if(prestigious){
-			if((tempProd distance_to self)>distanceMaxPrestigeous){
-				do createProducerType2(self,tempProd distance_to self);
+		if((tempProd distance_to self)>self.distanceMinType2){
+				do createProducerType2(self,self.distanceMinType2);
 			} else {
 				//activate the producer if not activated
 				tempProd.my_prod.activated <- true;
-			}
-		} else {
-			if((tempProd distance_to self)>distanceMaxNotPrestigeous){
-				do createProducerType2(self,tempProd distance_to self);
-			} else {
-				//activate the producer if not activated
-				tempProd.my_prod.activated <- true;
-			}
 		}
+		
 	}
 	
 	//TODO : debug this part(why so long sometimes to use a created prod)
@@ -648,9 +640,9 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 				if(temp.is_Consumer){
 					float computationTemp;
 					if(temp.my_consum.prestigious){
-						computationTemp <- (distanceMaxPrestigeous-((self distance_to temp)))/distanceMaxPrestigeous;
+						computationTemp <- -(((self distance_to temp) + temp.price)-(test.distanceMinType2+distanceMaxPrestigeous))/distanceMaxPrestigeous;
 					} else {
-						computationTemp <- (distanceMaxNotPrestigeous-((self distance_to temp)))/distanceMaxNotPrestigeous;
+						computationTemp <- -(((self distance_to temp) + temp.price)-(test.distanceMinType2+distanceMaxNotPrestigeous))/distanceMaxNotPrestigeous;
 					}
 					if(computationTemp < 0.0){
 						computationTemp <- 0.0;
