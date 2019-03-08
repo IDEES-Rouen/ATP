@@ -46,6 +46,9 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	
 	float proba_build_again <- 0.0 parameter: true min: 0.0 max: 1.0;
 	float proba_reuse <- 0.0 parameter: true min: 0.0 max: 1.0;
+	bool reuse_while_built <- true parameter: true;
+	bool reuse_while_building <-true parameter: true;
+	
 	int newConsumerPrestigiousPrioritary <- 0 parameter: true; //number of new consumerprestigious and prioritary
 	int newConsumerPrestigiousNotPrioritary <- 0 parameter: true; //number of new consumerprestigious and prioritary
 	int newConsumerNotPrestigiousPrioritary <- 0 parameter: true; //number of new consumerprestigious and prioritary
@@ -224,7 +227,18 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 			tempConsum.is_reused <- false;
 		}
 		
-		loop tempConsum over: Consumer /*where (not(each.is_built))*/{
+		//TODO : Change the list over which the reuse is applied depending on reuse_while_built bool reuse_while_building 
+		list<Consumer> consumReuse <- nil;
+		if(reuse_while_built and not(reuse_while_building)){
+			consumReuse <-  Consumer where (each.is_built);
+		}
+		if(not(reuse_while_built) and reuse_while_building){
+			consumReuse <-  Consumer where (not(each.is_built));
+		}
+		if(reuse_while_built and reuse_while_building){
+			consumReuse <- Consumer;
+		}
+		loop tempConsum over: consumReuse /*where (not(each.is_built))*/{
 			if(flip(proba_reuse)){
 				tempConsum.is_reused <- true;
 				tempConsum.quantity_reused_type1 <- round(0.1*tempConsum.collectType1);
@@ -517,6 +531,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 		do buyType1(consumer_strategy);
 	}
 	
+	//TODO : optimize by computing only intermediaries with percentageCollect[tempInt] > 0.0
 	action buyType1(int strategy){
 		list<Intermediary> temp <- Intermediary where (/*not(each.is_Consumer) and*/ each.type=1 or each.type=0);
 		temp <- temp sort_by((each distance_to self) + each.price);
@@ -697,6 +712,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 		}
 	}
 	
+	//TODO : optimize by computing only intermediaries with probabilitiesProd[tempInt] > 0.0
 	action buyType2(int strategy){
 		list<Intermediary> temp <- Intermediary where (/*not(each.is_Consumer) and */each.type=2 or each.type=0);
 		temp <- temp sort_by((each distance_to self) + each.price);
