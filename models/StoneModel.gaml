@@ -227,7 +227,6 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 			tempConsum.is_reused <- false;
 		}
 		
-		//TODO : Change the list over which the reuse is applied depending on reuse_while_built bool reuse_while_building 
 		list<Consumer> consumReuse <- nil;
 		if(reuse_while_built and not(reuse_while_building)){
 			consumReuse <-  Consumer where (each.is_built);
@@ -236,9 +235,9 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 			consumReuse <-  Consumer where (not(each.is_built));
 		}
 		if(reuse_while_built and reuse_while_building){
-			consumReuse <- Consumer;
+			consumReuse <- list(Consumer);
 		}
-		loop tempConsum over: consumReuse /*where (not(each.is_built))*/{
+		loop tempConsum over: consumReuse {
 			if(flip(proba_reuse)){
 				tempConsum.is_reused <- true;
 				tempConsum.quantity_reused_type1 <- round(0.1*tempConsum.collectType1);
@@ -531,107 +530,108 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 		do buyType1(consumer_strategy);
 	}
 	
-	//TODO : optimize by computing only intermediaries with percentageCollect[tempInt] > 0.0
 	action buyType1(int strategy){
 		list<Intermediary> temp <- Intermediary where (/*not(each.is_Consumer) and*/ each.type=1 or each.type=0);
 		temp <- temp sort_by((each distance_to self) + each.price);
 		loop tempInt over: temp{
-			if (collectType1<needType1){
-				int collectTemp;
-				if((tempInt.is_Producer and tempInt.my_prod.activated) and strategy=1){
-				collectTemp <- min(needType1-collectType1,round(self.percentageCollect[tempInt]*(tempInt.my_prod.stockMax-tempInt.my_prod.production)));
-				collectType1 <- collectType1+collectTemp;
-				if(collectTemp>0){
-						write self.name + " buy prod Type 1 " + collectTemp + " " + tempInt.name;
-						create Ware number: 1{
-							prodPlace <- tempInt.my_prod;
-							origin <- tempInt;
-							quantity <- collectTemp;
-							target <- myself.location;
-							distance <- myself distance_to tempInt.my_prod;
-							put true at:self.prodPlace in: myself.presenceProd;
-							add self to: myself.wareReceived;
-						}
-						//tempInt.stock <- tempInt.stock - collectTemp;
-						tempInt.my_prod.production <- tempInt.my_prod.production + collectTemp;
-					}
-				} else if((not(tempInt.is_Producer)) and (not(tempInt.is_Consumer))){
-					collectTemp <- min(needType1-collectType1,round(self.percentageCollect[tempInt]*tempInt.stock));
+			if(percentageCollect[tempInt] > 0.0){
+				if (collectType1<needType1){
+					int collectTemp;
+					if((tempInt.is_Producer and tempInt.my_prod.activated) and strategy=1){
+					collectTemp <- min(needType1-collectType1,round(self.percentageCollect[tempInt]*(tempInt.my_prod.stockMax-tempInt.my_prod.production)));
 					collectType1 <- collectType1+collectTemp;
 					if(collectTemp>0){
-						write self.name + " buy inter Type 1 " + collectTemp + " " + tempInt.name;
-						list<Ware> tempWares <- Ware where(each.location = tempInt.location);
-						bool endCollecting <- false;
-						int recupWare<-0;
-						loop tempLoop over: tempWares{
-							if(not endCollecting){
-								if (recupWare+tempLoop.quantity <= collectTemp) {
-									recupWare <- recupWare + tempLoop.quantity;
-									tempLoop.target <- self.location;
-									tempLoop.distance <- tempLoop.distance + tempLoop distance_to self;
-									put true at:tempLoop.prodPlace in: presenceProd;
-									add tempLoop to: wareReceived;
-								} else {
-									create Ware number: 1{
-										quantity <- collectTemp-recupWare;
-										target <- myself.location;
-										distance <- tempLoop.distance + self distance_to myself;
-										origin <- tempLoop.origin;
-										prodPlace <- tempLoop.prodPlace;
-										put true at:self.prodPlace in: myself.presenceProd;
-										add self to: myself.wareReceived;
+							write self.name + " buy prod Type 1 " + collectTemp + " " + tempInt.name;
+							create Ware number: 1{
+								prodPlace <- tempInt.my_prod;
+								origin <- tempInt;
+								quantity <- collectTemp;
+								target <- myself.location;
+								distance <- myself distance_to tempInt.my_prod;
+								put true at:self.prodPlace in: myself.presenceProd;
+								add self to: myself.wareReceived;
+							}
+							//tempInt.stock <- tempInt.stock - collectTemp;
+							tempInt.my_prod.production <- tempInt.my_prod.production + collectTemp;
+						}
+					} else if((not(tempInt.is_Producer)) and (not(tempInt.is_Consumer))){
+						collectTemp <- min(needType1-collectType1,round(self.percentageCollect[tempInt]*tempInt.stock));
+						collectType1 <- collectType1+collectTemp;
+						if(collectTemp>0){
+							write self.name + " buy inter Type 1 " + collectTemp + " " + tempInt.name;
+							list<Ware> tempWares <- Ware where(each.location = tempInt.location);
+							bool endCollecting <- false;
+							int recupWare<-0;
+							loop tempLoop over: tempWares{
+								if(not endCollecting){
+									if (recupWare+tempLoop.quantity <= collectTemp) {
+										recupWare <- recupWare + tempLoop.quantity;
+										tempLoop.target <- self.location;
+										tempLoop.distance <- tempLoop.distance + tempLoop distance_to self;
+										put true at:tempLoop.prodPlace in: presenceProd;
+										add tempLoop to: wareReceived;
+									} else {
+										create Ware number: 1{
+											quantity <- collectTemp-recupWare;
+											target <- myself.location;
+											distance <- tempLoop.distance + self distance_to myself;
+											origin <- tempLoop.origin;
+											prodPlace <- tempLoop.prodPlace;
+											put true at:self.prodPlace in: myself.presenceProd;
+											add self to: myself.wareReceived;
+										}
+										tempLoop.quantity <- tempLoop.quantity - (collectTemp-recupWare);
+										recupWare <- collectTemp;
 									}
-									tempLoop.quantity <- tempLoop.quantity - (collectTemp-recupWare);
-									recupWare <- collectTemp;
-								}
-								if(recupWare >= collectTemp){
-									endCollecting <- true;
+									if(recupWare >= collectTemp){
+										endCollecting <- true;
+									}
 								}
 							}
 						}
-					}
-					ask tempInt{
-						stock <- stock - collectTemp;
-					}	
-				} else if (tempInt.is_Consumer and (not(tempInt.my_consum=self)) and tempInt.my_consum.is_reused and strategy=1){
-					//buy the reused of a concumer
-					collectTemp <- min(needType1-collectType1,round(self.percentageCollect[tempInt]*tempInt.my_consum.quantity_reused_type1));
-					collectType1 <- collectType1+collectTemp;
-					if(collectTemp>0){
-						write self.name + " buy re-use Type 1 " + collectTemp;
-						list<Ware> tempWares <- Ware where(each.location = tempInt.location);
-						bool endCollecting <- false;
-						int recupWare<-0;
-						loop tempLoop over: tempWares{
-							if(not endCollecting){
-								if (recupWare+tempLoop.quantity <= collectTemp) {
-									recupWare <- recupWare + tempLoop.quantity;
-									tempLoop.target <- self.location;
-									tempLoop.distance <- tempLoop.distance + tempLoop distance_to self;
-									put true at:tempLoop.prodPlace in: presenceProd;
-									add tempLoop to: wareReceived;
-								} else {
-									create Ware number: 1{
-										quantity <- collectTemp-recupWare;
-										target <- myself.location;
-										distance <- tempLoop.distance + self distance_to myself;
-										origin <- tempLoop.origin;
-										prodPlace <- tempLoop.prodPlace;
-										put true at:self.prodPlace in: myself.presenceProd;
-										add self to: myself.wareReceived;
+						ask tempInt{
+							stock <- stock - collectTemp;
+						}	
+					} else if (tempInt.is_Consumer and (not(tempInt.my_consum=self)) and tempInt.my_consum.is_reused and strategy=1){
+						//buy the reused of a concumer
+						collectTemp <- min(needType1-collectType1,round(self.percentageCollect[tempInt]*tempInt.my_consum.quantity_reused_type1));
+						collectType1 <- collectType1+collectTemp;
+						if(collectTemp>0){
+							write self.name + " buy re-use Type 1 " + collectTemp;
+							list<Ware> tempWares <- Ware where(each.location = tempInt.location);
+							bool endCollecting <- false;
+							int recupWare<-0;
+							loop tempLoop over: tempWares{
+								if(not endCollecting){
+									if (recupWare+tempLoop.quantity <= collectTemp) {
+										recupWare <- recupWare + tempLoop.quantity;
+										tempLoop.target <- self.location;
+										tempLoop.distance <- tempLoop.distance + tempLoop distance_to self;
+										put true at:tempLoop.prodPlace in: presenceProd;
+										add tempLoop to: wareReceived;
+									} else {
+										create Ware number: 1{
+											quantity <- collectTemp-recupWare;
+											target <- myself.location;
+											distance <- tempLoop.distance + self distance_to myself;
+											origin <- tempLoop.origin;
+											prodPlace <- tempLoop.prodPlace;
+											put true at:self.prodPlace in: myself.presenceProd;
+											add self to: myself.wareReceived;
+										}
+										tempLoop.quantity <- tempLoop.quantity - (collectTemp-recupWare);
+										recupWare <- collectTemp;
 									}
-									tempLoop.quantity <- tempLoop.quantity - (collectTemp-recupWare);
-									recupWare <- collectTemp;
-								}
-								if(recupWare >= collectTemp){
-									endCollecting <- true;
+									if(recupWare >= collectTemp){
+										endCollecting <- true;
+									}
 								}
 							}
 						}
+						ask tempInt.my_consum{
+							quantity_reused_type1 <- quantity_reused_type1 - collectTemp;
+						}	
 					}
-					ask tempInt.my_consum{
-						quantity_reused_type1 <- quantity_reused_type1 - collectTemp;
-					}	
 				}
 			}
 		}
@@ -712,112 +712,114 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 		}
 	}
 	
-	//TODO : optimize by computing only intermediaries with probabilitiesProd[tempInt] > 0.0
 	action buyType2(int strategy){
 		list<Intermediary> temp <- Intermediary where (/*not(each.is_Consumer) and */each.type=2 or each.type=0);
 		temp <- temp sort_by((each distance_to self) + each.price);
 		int collectTemp;
 		loop tempInt over: temp{
-			if (collect<needType2 and flip(self.probabilitiesProd[tempInt])){
-				if(tempInt.is_Producer and tempInt.my_prod.activated and strategy=1){
-				collectTemp <- min(needType2-collect,tempInt.my_prod.stockMax-tempInt.my_prod.production);
-				collect <- collect+collectTemp;
-				if(collectTemp>0){
-						write self.name + " buy prod Type 2 " + collectTemp + " " + tempInt.name;
-						create Ware number: 1{
-							prodPlace <- tempInt.my_prod;
-							origin <- tempInt;
-							quantity <- collectTemp;
-							target <- myself.location;
-							distance <- myself distance_to tempInt.my_prod;
-							put true at:self.prodPlace in: myself.presenceProd;
-							add self to: myself.wareReceived;
-						}
-						//tempInt.stock <- tempInt.stock - collectTemp;
-						tempInt.my_prod.production <- tempInt.my_prod.production + collectTemp;
-					}
-				} else if(not(tempInt.is_Producer) and not(tempInt.is_Consumer) and flip(self.probabilitiesProd[tempInt])){
-					collectTemp <- min(needType2-collect,tempInt.stock);
+			if(probabilitiesProd[tempInt] > 0.0){
+				if (collect<needType2 and flip(self.probabilitiesProd[tempInt])){
+					if(tempInt.is_Producer and tempInt.my_prod.activated and strategy=1){
+					collectTemp <- min(needType2-collect,tempInt.my_prod.stockMax-tempInt.my_prod.production);
 					collect <- collect+collectTemp;
 					if(collectTemp>0){
-						write self.name + " buy inter Type 2 " + collectTemp + " " + tempInt.name;
-						list<Ware> tempWares <- Ware where(each.location = tempInt.location);
-						bool endCollecting <- false;
-						int recupWare<-0;
-						loop tempLoop over: tempWares{
-							if(not endCollecting){
-								if (recupWare+tempLoop.quantity <= collectTemp) {
-									recupWare <- recupWare + tempLoop.quantity;
-									tempLoop.target <- self.location;
-									tempLoop.distance <- tempLoop.distance + tempLoop distance_to self;
-									put true at:tempLoop.prodPlace in: presenceProd;
-									add tempLoop to: wareReceived;
-								} else {
-									create Ware number: 1{
-										quantity <- collectTemp-recupWare;
-										target <- myself.location;
-										distance <- tempLoop.distance + self distance_to myself;
-										origin <- tempLoop.origin;
-										prodPlace <- tempLoop.prodPlace;
-										put true at:self.prodPlace in: myself.presenceProd;
-										add self to: myself.wareReceived;
+							write self.name + " buy prod Type 2 " + collectTemp + " " + tempInt.name;
+							create Ware number: 1{
+								prodPlace <- tempInt.my_prod;
+								origin <- tempInt;
+								quantity <- collectTemp;
+								target <- myself.location;
+								distance <- myself distance_to tempInt.my_prod;
+								put true at:self.prodPlace in: myself.presenceProd;
+								add self to: myself.wareReceived;
+							}
+							//tempInt.stock <- tempInt.stock - collectTemp;
+							tempInt.my_prod.production <- tempInt.my_prod.production + collectTemp;
+						}
+					} else if(not(tempInt.is_Producer) and not(tempInt.is_Consumer) and flip(self.probabilitiesProd[tempInt])){
+						collectTemp <- min(needType2-collect,tempInt.stock);
+						collect <- collect+collectTemp;
+						if(collectTemp>0){
+							write self.name + " buy inter Type 2 " + collectTemp + " " + tempInt.name;
+							list<Ware> tempWares <- Ware where(each.location = tempInt.location);
+							bool endCollecting <- false;
+							int recupWare<-0;
+							loop tempLoop over: tempWares{
+								if(not endCollecting){
+									if (recupWare+tempLoop.quantity <= collectTemp) {
+										recupWare <- recupWare + tempLoop.quantity;
+										tempLoop.target <- self.location;
+										tempLoop.distance <- tempLoop.distance + tempLoop distance_to self;
+										put true at:tempLoop.prodPlace in: presenceProd;
+										add tempLoop to: wareReceived;
+									} else {
+										create Ware number: 1{
+											quantity <- collectTemp-recupWare;
+											target <- myself.location;
+											distance <- tempLoop.distance + self distance_to myself;
+											origin <- tempLoop.origin;
+											prodPlace <- tempLoop.prodPlace;
+											put true at:self.prodPlace in: myself.presenceProd;
+											add self to: myself.wareReceived;
+										}
+										tempLoop.quantity <- tempLoop.quantity - (collectTemp-recupWare);
+										recupWare <- collectTemp;
 									}
-									tempLoop.quantity <- tempLoop.quantity - (collectTemp-recupWare);
-									recupWare <- collectTemp;
-								}
-								if(recupWare >= collectTemp){
-									endCollecting <- true;
+									if(recupWare >= collectTemp){
+										endCollecting <- true;
+									}
 								}
 							}
 						}
-					}
-					ask tempInt{
-						stock <- stock - collectTemp;
-					}	
-				} else if(tempInt.is_Consumer){				
-					if(not(tempInt.my_consum=self) and tempInt.my_consum.is_reused and flip(self.probabilitiesProd[tempInt]) and strategy=1){
-//					write tempInt.name;
-					collectTemp <- min(needType2-collect,tempInt.my_consum.quantity_reused_type2);
-					collect <- collect+collectTemp;
-					if(collectTemp>0){
-						write self.name + " buy re-use Type 2 " + collectTemp;
-						list<Ware> tempWares <- Ware where(each.location = tempInt.location);
-						bool endCollecting <- false;
-						int recupWare<-0;
-						loop tempLoop over: tempWares{
-							if(not endCollecting){
-								if (recupWare+tempLoop.quantity <= collectTemp) {
-									recupWare <- recupWare + tempLoop.quantity;
-									tempLoop.target <- self.location;
-									tempLoop.distance <- tempLoop.distance + tempLoop distance_to self;
-									put true at:tempLoop.prodPlace in: presenceProd;
-									add tempLoop to: wareReceived;
-								} else {
-									create Ware number: 1{
-										quantity <- collectTemp-recupWare;
-										target <- myself.location;
-										distance <- tempLoop.distance + self distance_to myself;
-										origin <- tempLoop.origin;
-										prodPlace <- tempLoop.prodPlace;
-										put true at:self.prodPlace in: myself.presenceProd;
-										add self to: myself.wareReceived;
+						ask tempInt{
+							stock <- stock - collectTemp;
+						}	
+					} else if(tempInt.is_Consumer){				
+						if(not(tempInt.my_consum=self) and tempInt.my_consum.is_reused and flip(self.probabilitiesProd[tempInt]) and strategy=1){
+	//					write tempInt.name;
+						collectTemp <- min(needType2-collect,tempInt.my_consum.quantity_reused_type2);
+						collect <- collect+collectTemp;
+						if(collectTemp>0){
+							write self.name + " buy re-use Type 2 " + collectTemp;
+							list<Ware> tempWares <- Ware where(each.location = tempInt.location);
+							bool endCollecting <- false;
+							int recupWare<-0;
+							loop tempLoop over: tempWares{
+								if(not endCollecting){
+									if (recupWare+tempLoop.quantity <= collectTemp) {
+										recupWare <- recupWare + tempLoop.quantity;
+										tempLoop.target <- self.location;
+										tempLoop.distance <- tempLoop.distance + tempLoop distance_to self;
+										put true at:tempLoop.prodPlace in: presenceProd;
+										add tempLoop to: wareReceived;
+									} else {
+										create Ware number: 1{
+											quantity <- collectTemp-recupWare;
+											target <- myself.location;
+											distance <- tempLoop.distance + self distance_to myself;
+											origin <- tempLoop.origin;
+											prodPlace <- tempLoop.prodPlace;
+											put true at:self.prodPlace in: myself.presenceProd;
+											add self to: myself.wareReceived;
+										}
+										tempLoop.quantity <- tempLoop.quantity - (collectTemp-recupWare);
+										recupWare <- collectTemp;
 									}
-									tempLoop.quantity <- tempLoop.quantity - (collectTemp-recupWare);
-									recupWare <- collectTemp;
-								}
-								if(recupWare >= collectTemp){
-									endCollecting <- true;
+									if(recupWare >= collectTemp){
+										endCollecting <- true;
+									}
 								}
 							}
 						}
+						ask tempInt{
+							stock <- stock - collectTemp;
+						}	
 					}
-					ask tempInt{
-						stock <- stock - collectTemp;
-					}	
-				}
-				
+					
+					}
 				}
 			}
+		
 		}
 		my_inter.capacity <- need;
 		my_inter.stock <- collect;
@@ -1060,6 +1062,13 @@ species PolygonWare { //Used to draw lines of wares depending on their place of 
 	aspect base {
 		draw shape color: color ;
 	}
+	
+	aspect type1 {
+		if(placeProd.type=1){
+			draw shape color:color;
+		}
+	}
+	
 }
 
 species BackMap {//Used for the display
@@ -1095,6 +1104,12 @@ experiment Spreading type: gui {
 		display second_display background: #lightgray {
 //			image "../includes/mapStone.png" transparency:0.5;
 			species PolygonWare;
+			species BackMap aspect:base;
+		}
+
+		display third_display background: #lightgray {
+//			image "../includes/mapStone.png" transparency:0.5;
+			species PolygonWare aspect:type1;
 			species BackMap aspect:base;
 		}
 
