@@ -8,6 +8,10 @@
 model StoneModel
 
 global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) + shuffle(Producer)*/ {
+	list<string> lName;
+	list<list<int>> lValue;
+	list<rgb> lCol;
+	
 	int nb_init_Consumer_prestigious <- 2 parameter: true;
 	int nb_init_Consumer_not_prestigious <- 2 parameter: true;
 	int nb_init_Intermediary_type1 <- 1 parameter: true;
@@ -58,6 +62,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	int consumer_strategy <- 1 parameter: true min: 1 max: 2; //1:buy to producers and intermediaries. 2:only buy to inermediairies.
 	int intermediary_strategy <- 3 parameter: true min:1 max: 3; //1: buy the stock. 2: buy stock and place orders. 3: only place orders.
 	int producer_strategy <- 1 parameter: true min: 1 max: 2; //1: produce just what has been oredered. 2: produce the maximum it can
+	
 	
 	init {
 		if(use_map){
@@ -281,6 +286,11 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	
 	reflex displayReflex {
 		write "-------------------------";
+		loop tempProd over: Producer{
+			add tempProd.name to: lName;
+			add Consumer collect each.quantityPerProd[tempProd] to: lValue;
+			add tempProd.color to: lCol;
+		}
 		averageDistance <- 0.0;
 		if(not empty(Ware)){
 			distanceMax <- first(Ware).distance;
@@ -1121,31 +1131,33 @@ experiment Spreading type: gui {
 			}
 		}
 		
-		//TODO : Improve the two displays below (with the dynamism for producers and consumers)
 		display "information on consumers" /*type:java2D*/{
 			chart "information on consumers" type:histogram
 			style:stack
 			{
-				loop tempProd over:Producer{
-					data tempProd.name style: stack
-					value:(Consumer collect each.quantityPerProd[tempProd])
-					color: tempProd.color;
-				}
+				datalist legend: lName value: lValue color: lCol;
+//				loop tempProd over:Producer{
+//					data tempProd.name style: stack
+//					value:(Consumer collect each.quantityPerProd[tempProd])
+//					color: tempProd.color;
+//				}
 			}
 		} 
 	
 		display "production information" {
 			chart "production information" type:series size: {0.5,1} position: {0, 0}
 			{
-				loop tempProd over: Producer {
-					data tempProd.name value: tempProd.productionBefore color:tempProd.color;
-				}
+				datalist legend: Producer accumulate each.name value: Producer accumulate each.productionBefore color: Producer accumulate each.color;
+//				loop tempProd over: Producer {
+//					data tempProd.name value: tempProd.productionBefore color:tempProd.color;
+//				}
 			}
 			chart "stock information" type:series size: {0.5,1} position: {0.5, 0}
 			{
-				loop tempProd over: Producer {
-					data tempProd.name value: tempProd.stock color:tempProd.color;
-				}
+				datalist legend: Producer accumulate each.name value: Producer accumulate each.stock color: Producer accumulate each.color;
+//				loop tempProd over: Producer {
+//					data tempProd.name value: tempProd.stock color:tempProd.color;
+//				}
 			}
 		} 
 	
