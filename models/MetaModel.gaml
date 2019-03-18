@@ -8,6 +8,10 @@
 model MetaModel
 
 global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + shuffle(Producer){
+	list<string> lName;
+	list<list<int>> lValue;
+	list<rgb> lCol;
+	
 	int nb_init_Consumer <- 2 parameter: true;
 	int nb_init_Intermediary_Type1 <- 1 parameter: true;
 	int nb_init_Intermediary_Type2 <- 1 parameter: true;
@@ -146,6 +150,11 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 	
 	reflex displayReflex {
 		write "-------------------------";
+		loop tempProd over: Producer{
+			add tempProd.name to: lName;
+			add Consumer collect each.quantityPerProd[tempProd] to: lValue;
+			add tempProd.color to: lCol;
+		}
 		averageDistance <- 0.0;
 		if(not empty(Ware)){
 			distanceMax <- first(Ware).distance;
@@ -333,7 +342,7 @@ species Consumer {
 	}
 	
 	action buyType1(int strategy){
-		list<Intermediary> temp <- Intermediary where (/*not(each.is_Consumer) and*/ each.type=1 or each.type=0);
+		list<Intermediary> temp <- Intermediary where (not(each.is_Consumer) and each.type=1/* or each.type=0*/);
 		temp <- temp sort_by((each distance_to self) + each.price);
 		loop tempInt over: temp{
 			if(percentageCollect[tempInt] > 0.0){
@@ -445,7 +454,7 @@ species Consumer {
 	}
 	
 	action buyType2(int strategy){
-		list<Intermediary> temp <- Intermediary where (/*not(each.is_Consumer) and */each.type=2 or each.type=0);
+		list<Intermediary> temp <- Intermediary where (not(each.is_Consumer) and each.type=2 /*or each.type=0*/);
 		temp <- temp sort_by((each distance_to self) + each.price);
 		int collectTemp;
 		loop tempInt over: temp{
@@ -888,26 +897,29 @@ experiment Spreading type: gui {
 			chart "information on consumers" type:histogram
 			style:stack
 			{
-				loop tempProd over:Producer{
-					data tempProd.name style: stack
-					value:(Consumer collect each.quantityPerProd[tempProd])
-					color: tempProd.color;
-				}
+				datalist legend: lName value: lValue color: lCol;
+//				loop tempProd over:Producer{
+//					data tempProd.name style: stack
+//					value:(Consumer collect each.quantityPerProd[tempProd])
+//					color: tempProd.color;
+//				}
 			}
 		} 
 	
 		display "production information" {
 			chart "production information" type:series size: {0.5,1} position: {0, 0}
 			{
-				loop tempProd over: Producer {
-					data tempProd.name value: tempProd.production color:tempProd.color;
-				}
+				datalist legend: Producer accumulate each.name value: Producer accumulate each.production color: Producer accumulate each.color;
+//				loop tempProd over: Producer {
+//					data tempProd.name value: tempProd.productionBefore color:tempProd.color;
+//				}
 			}
 			chart "stock information" type:series size: {0.5,1} position: {0.5, 0}
 			{
-				loop tempProd over: Producer {
-					data tempProd.name value: tempProd.stock color:tempProd.color;
-				}
+				datalist legend: Producer accumulate each.name value: Producer accumulate each.stock color: Producer accumulate each.color;
+//				loop tempProd over: Producer {
+//					data tempProd.name value: tempProd.stock color:tempProd.color;
+//				}
 			}
 		} 
 	
