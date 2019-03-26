@@ -34,8 +34,6 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	float distanceMin <- 0.0;
 	int nb_prioritary_prestigeous<- 1 parameter:true;
 	int nb_prioritary_not_prestigeous<- 1 parameter:true;
-	int prodRate <- 5 parameter:true;
-	int prodRateFixed <- 50 parameter:true;
 	int consumRate <- 50 parameter:true;
 	int consumRateFixed <- 500 parameter:true;
 	float percentageType1Prestigeous <- 0.0 parameter: true min: 0.0 max: 1.0; //between 0 and 1
@@ -45,7 +43,8 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	float distanceMaxIntermediary <- 1500.0 parameter:true;
 	int capacityInter <- 30 parameter: true;
 	int stock_max_prod <- 10 parameter: true;
-	int stock_max_prod_fixe <- 100 parameter: true;
+	int stock_max_prod_fixe_type1 <- 100 parameter: true;
+	int stock_max_prod_fixe_type2 <- 100 parameter: true;
 	float init_price <- 100.0 parameter: true;
 	
 	float proba_build_again <- 0.0 parameter: true min: 0.0 max: 1.0;
@@ -994,12 +993,20 @@ species Producer  schedules: shuffle(Producer){
 	int production <- 0 ;
 	int productionBefore;
 	int stock <- 0 ;
-	int stockMax <- stock_max_prod_fixe ;//+ rnd(stock_max_prod);
+	int stockMax <- 0 ;//+ rnd(stock_max_prod);
 	int type; //type 1 is superior to type 2;
 	Intermediary my_inter;
 	rgb color <- rgb(rnd(255),rnd(255),rnd(255));
 	
 	bool activated <- true;//used to display and schedulle only activated producer, but keeping trace of older production sites.
+	
+	init {
+		if(type=1){
+			stockMax <- stock_max_prod_fixe_type1;
+		} else {
+			stockMax <- stock_max_prod_fixe_type2;
+		}
+	}
 	
 	reflex produce {
 		if producer_strategy=1{
