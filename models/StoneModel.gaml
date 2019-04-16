@@ -50,6 +50,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	int stock_max_prod_fixe_type2 <- 100 parameter: true;
 	float init_price <- 100.0 parameter: true;
 	
+	bool collectProbabilist <- false parameter: true;
 	float proba_build_again <- 0.0 parameter: true min: 0.0 max: 1.0;
 	float proba_reuse <- 0.0 parameter: true min: 0.0 max: 1.0;
 	bool reuse_while_built <- true parameter: true;
@@ -71,9 +72,10 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 			shape <- envelope(envelopeMap_shapefile);
 			create BackMap from: backMap_shapefile;
 		} else {
-			shape <- square(2000);
+			shape <- square(areaMap);
 			create BackMap number:1{
-				shape <- square(2000);
+				shape <- square(areaMap);
+				location <- {areaMap*0.5,areaMap*0.5};
 			}
 		}
 		if(use_map){
@@ -405,25 +407,32 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 			}
 		}
 		if(consumer_strategy=1){
-			Intermediary tempType1 <- closest_to(Intermediary where ((each.type=1) and not each.is_Consumer),self);
-			Intermediary tempType2 <- closest_to(Intermediary where ((each.type=2) and not each.is_Consumer),self);
-			distanceMinType1 <- self distance_to tempType1;
-			distanceMinType1 <- distanceMinType1 + tempType1.price;
-			if(!createNewProducers){
-				distanceMinType2 <- self distance_to tempType2;
-				distanceMinType2 <- distanceMinType2 + tempType2.price;
+			if(nb_init_prod_type1 >0){
+				Intermediary tempType1 <- closest_to(Intermediary where ((each.type=1) and not each.is_Consumer),self);
+				distanceMinType1 <- self distance_to tempType1;
+				distanceMinType1 <- distanceMinType1 + tempType1.price;
+			}
+			if(nb_init_prod_type2 >0){
+				Intermediary tempType2 <- closest_to(Intermediary where ((each.type=2) and not each.is_Consumer),self);
+				if(!createNewProducers){
+					distanceMinType2 <- self distance_to tempType2;
+					distanceMinType2 <- distanceMinType2 + tempType2.price;
+				}
 			}
 		}
 		if(consumer_strategy=2){
-			Intermediary tempType1 <- closest_to(Intermediary where ((each.type=1) and (not(each.is_Consumer) and not(each.is_Producer))),self);
-			Intermediary tempType2 <- closest_to(Intermediary where ((each.type=2) and (not(each.is_Consumer) and not(each.is_Producer))),self);
-			distanceMinType1 <- self distance_to tempType1;
-			distanceMinType1 <- distanceMinType1 + tempType1.price;
-
-			if(!createNewProducers){
-				distanceMinType2 <- self distance_to tempType2;
-				distanceMinType2 <- distanceMinType2 + tempType2.price;
-			}		
+			if(nb_init_prod_type1 >0){
+				Intermediary tempType1 <- closest_to(Intermediary where ((each.type=1) and (not(each.is_Consumer) and not(each.is_Producer))),self);
+				distanceMinType1 <- self distance_to tempType1;
+				distanceMinType1 <- distanceMinType1 + tempType1.price;
+			}
+			if(nb_init_prod_type2 >0){
+				Intermediary tempType2 <- closest_to(Intermediary where ((each.type=2) and (not(each.is_Consumer) and not(each.is_Producer))),self);
+				if(!createNewProducers){
+					distanceMinType2 <- self distance_to tempType2;
+					distanceMinType2 <- distanceMinType2 + tempType2.price;
+				}
+			}
 		}
 		
 		loop temp over: Producer{
@@ -555,6 +564,9 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 					int collectTemp;
 					if((tempInt.is_Producer and tempInt.my_prod.activated) and strategy=1){
 					collectTemp <- min(needType1-collectType1,round(self.percentageCollect[tempInt]*(tempInt.my_prod.stockMax-tempInt.my_prod.production)));
+					if(collectProbabilist){
+						collectTemp <- round((rnd (1000) / 1000)*collectTemp);
+					}
 					collectType1 <- collectType1+collectTemp;
 					if(collectTemp>0){
 							write self.name + " buy prod Type 1 " + collectTemp + " " + tempInt.name;
@@ -741,6 +753,9 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 				if (collect<needType2 and flip(self.probabilitiesProd[tempInt])){
 					if(tempInt.is_Producer and tempInt.my_prod.activated and strategy=1){
 					collectTemp <- min(needType2-collect,tempInt.my_prod.stockMax-tempInt.my_prod.production);
+					if(collectProbabilist){
+						collectTemp <- round((rnd (1000) / 1000)*collectTemp);
+					}
 					collect <- collect+collectTemp;
 					if(collectTemp>0){
 							write self.name + " buy prod Type 2 " + collectTemp + " " + tempInt.name;
@@ -1101,7 +1116,11 @@ species PolygonWare { //Used to draw lines of wares depending on their place of 
 
 species BackMap {//Used for the display
 	aspect base{
-		draw shape border: #black empty:true ;
+		if(use_map){
+			draw shape border: #black empty:true ;
+		} else {
+			draw square(areaMap) /*at: {areaMap*0.5,areaMap*0.5}*/ border: #black empty:true ;
+		}
 	}
 }
 
