@@ -18,11 +18,15 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 	int nb_init_prod_Type1 <- 2 parameter: true;
 	int nb_init_prod_Type2 <- 2 parameter: true;
 	
+	bool use_map <- true parameter:true;
+	int areaMap <- 2000 parameter: true;
+	int stopTime <- 500 parameter: true;
+	
 	file envelopeMap_shapefile <- file("../includes/envelopeMap.shp");
 	file backMap_shapefile <- file("../includes/backMap.shp");
 	file caumont_shapefile <- file("../includes/caumont.shp");
 //	file vernon_shapefile <- file("../includes/vernon.shp");
-	geometry shape <- envelope(envelopeMap_shapefile);//rectangle(1763,2370);//square(2000);
+	geometry shape <- envelope(areaMap);//rectangle(1763,2370);//square(2000);
 	
 	float averageDistance <- 0.0;
 	float distanceMax <- 0.0;
@@ -43,7 +47,15 @@ global schedules: shuffle(Consumer) + shuffle(Intermediary) + shuffle(Ware) + sh
 	//TODO : different strategies for the producer ?
 	
 	init {
-		create BackMap from: backMap_shapefile;
+		if(use_map){
+			shape <- envelope(envelopeMap_shapefile);
+			create BackMap from: backMap_shapefile;
+		} else {
+			shape <- square(2000);
+			create BackMap number:1{
+				shape <- square(2000);
+			}
+		}
 		do createProd(nb_init_prod_Type1,1);
 		do createProd(nb_init_prod_Type2,2);
 		do createInter(nb_init_Intermediary_Type1,1);
@@ -869,7 +881,6 @@ experiment Spreading type: gui {
 	// Define attributes, actions, a init section and behaviors if necessary
 	// init { }
 	
-	//TODO : add other charts from stone model
 	output {
 	// Define inspectors, browsers and displays here
 	
@@ -892,7 +903,6 @@ experiment Spreading type: gui {
 			}
 		}
 	
-	//TODO : Bar charts for consumers and producers
 	display "information on consumers" /*type:java2D*/{
 			chart "information on consumers" type:histogram
 			style:stack

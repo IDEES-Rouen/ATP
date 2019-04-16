@@ -20,12 +20,14 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	int nb_init_prod_type2 <- 2 parameter: true;
 	
 	bool use_map <- true parameter:true;
+	int areaMap <- 2000 parameter: true;
+	int stopTime <- 500 parameter: true;
 	
 	file envelopeMap_shapefile <- file("../includes/envelopeMap.shp");
 	file backMap_shapefile <- file("../includes/backMap.shp");
 	file caumont_shapefile <- file("../includes/caumont.shp");
 //	file vernon_shapefile <- file("../includes/vernon.shp");
-	geometry shape <- square(2000);//<- envelope(envelopeMap_shapefile);//rectangle(1763,2370);//square(2000);
+	geometry shape <- square(areaMap);//<- envelope(envelopeMap_shapefile);//rectangle(1763,2370);//square(2000);
 	
 	bool createNewProducers <- false parameter: true;
 	
@@ -337,7 +339,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 				isFinished <- false;
 			}
 		}
-		if(cycle>500){
+		if(cycle>stopTime){
 			isFinished <- true;
 		}
 		if isFinished {
