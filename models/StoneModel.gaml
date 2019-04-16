@@ -22,6 +22,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	bool use_map <- true parameter:true;
 	int areaMap <- 2000 parameter: true;
 	int stopTime <- 500 parameter: true;
+	bool useDistance <- true parameter: true;
 	
 	file envelopeMap_shapefile <- file("../includes/envelopeMap.shp");
 	file backMap_shapefile <- file("../includes/backMap.shp");
@@ -543,7 +544,11 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 	
 	action buyType1(int strategy){
 		list<Intermediary> temp <- Intermediary where (/*not(each.is_Consumer) and*/ each.type=1 or each.type=0);
-		temp <- temp sort_by((each distance_to self) + each.price);
+		if(useDistance){
+			temp <- temp sort_by((each distance_to self) + each.price);
+		} else {
+			temp <- shuffle(temp);
+		}
 		loop tempInt over: temp{
 			if(percentageCollect[tempInt] > 0.0){
 				if (collectType1<needType1){
@@ -725,7 +730,11 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 	
 	action buyType2(int strategy){
 		list<Intermediary> temp <- Intermediary where (/*not(each.is_Consumer) and */each.type=2 or each.type=0);
-		temp <- temp sort_by((each distance_to self) + each.price);
+		if(useDistance){
+			temp <- temp sort_by((each distance_to self) + each.price);
+		} else {
+			temp <- shuffle(temp);
+		}
 		int collectTemp;
 		loop tempInt over: temp{
 			if(probabilitiesProd[tempInt] > 0.0){
