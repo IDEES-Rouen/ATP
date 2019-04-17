@@ -295,6 +295,12 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 			add Consumer collect each.quantityPerProd[tempProd] to: lValue;
 			add tempProd.color to: lCol;
 		}
+		ask Consumer{
+//			loop tempProd over: Producer{
+				save quantityPerProd/*[tempProd]*/ to: "../results/OD"+cycle+".csv" type:"csv" rewrite: false;
+//			}
+		}
+		//save lValue to: "../results/OD"+cycle+".csv" type:"csv" rewrite: false;
 		averageDistance <- 0.0;
 		if(not empty(Ware)){
 			distanceMax <- first(Ware).distance;
