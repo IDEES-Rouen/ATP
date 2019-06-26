@@ -8,10 +8,16 @@
 model StoneModel
 
 global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) + shuffle(Producer)*/ {
+	/*
+	 * Variables for the dynamic display of histograms about the presence  
+	 */
 	list<string> lName;
 	list<list<int>> lValue;
 	list<rgb> lCol;
 	
+	/*
+	 * Initial numbers of each type of species 
+	 */
 	int nb_init_Consumer_prestigious <- 2 parameter: true;
 	int nb_init_Consumer_not_prestigious <- 2 parameter: true;
 	int nb_init_Intermediary_type1 <- 1 parameter: true;
@@ -19,10 +25,12 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	int nb_init_prod_type1 <- 2 parameter: true;
 	int nb_init_prod_type2 <- 2 parameter: true;
 	
+	/*
+	 * variables for the environment
+	 */
 	bool use_map <- true parameter:true;
 	int areaMap <- 2000 parameter: true;
 	int stopTime <- 500 parameter: true;
-	bool useDistance <- true parameter: true;
 	
 	file envelopeMap_shapefile <- file("../includes/envelopeMap.shp");
 	file backMap_shapefile <- file("../includes/backMap.shp");
@@ -30,11 +38,18 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 //	file vernon_shapefile <- file("../includes/vernon.shp");
 	geometry shape <- square(areaMap);//<- envelope(envelopeMap_shapefile);//rectangle(1763,2370);//square(2000);
 	
-	bool createNewProducers <- false parameter: true;
-	
+	/*
+	 * Initial temporary values for various computations later
+	 */
 	float averageDistance <- 0.0;
 	float distanceMax <- 0.0;
 	float distanceMin <- 0.0;
+	
+	/*
+	 * Parameters which may be used by the user
+	 */
+	bool useDistance <- true parameter: true;
+	bool createNewProducers <- false parameter: true;
 	int nb_prioritary_prestigeous<- 1 parameter:true;
 	int nb_prioritary_not_prestigeous<- 1 parameter:true;
 	int consumRate <- 50 parameter:true;
@@ -66,8 +81,11 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	int intermediary_strategy <- 3 parameter: true min:1 max: 3; //1: buy the stock. 2: buy stock and place orders. 3: only place orders.
 	int producer_strategy <- 1 parameter: true min: 1 max: 2; //1: produce just what has been oredered. 2: produce the maximum it can
 	
-	
+	/*
+	 * Initialisation of the simulation
+	 */
 	init {
+		//initialisation of the environnement
 		if(use_map){
 			shape <- envelope(envelopeMap_shapefile);
 			create BackMap from: backMap_shapefile;
@@ -78,6 +96,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 				location <- {areaMap*0.5,areaMap*0.5};
 			}
 		}
+		//if the modeler uses the map of the normandy, the quarries of Caumont, Vernon and Fecamps are automatically created
 		if(use_map){
 			create Producer from: caumont_shapefile /*number: 1*/{
 				type<-1;
@@ -100,6 +119,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 		} else {
 			do createProd(nb_init_prod_type1,1);
 		}
+		//creation of initial producers, consumers and merchants
 		do createProd(nb_init_prod_type2,2);
 		do createInter(nb_init_Intermediary_type1,1);
 		do createInter(nb_init_Intermediary_type1,2);
@@ -113,6 +133,9 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 		}
 	}
 	
+	/*
+	 * Definition of user command to add/removes entities 
+	 */
 	user_command "create consum"{
 		do createConsum(1,true);
 	}
@@ -137,6 +160,9 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 		do destroyInter;
 	}
 	
+	/*
+	 * Definition of acion for the creation of entities  
+	 */
 	action createConsum(int nb_conso, bool prestig){
 		create Consumer number: nb_conso{
 			location <- any_location_in(first(BackMap));
@@ -212,6 +238,12 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 		}
 	}
 	
+	/*
+	 * The update of the simulation done at the begining of every step.
+	 * Updates the re-building of some consumers already built
+	 * Updates the re-usability
+	 * Creates new consumers
+	 */
 	reflex updateSimulation{
 		//Re-building (loop over all consumers built, proba to augment the needs and is_built is false)
 		loop tempConsum over: Consumer where (each.is_built){
@@ -288,6 +320,9 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 		}
 	}
 	
+	/* 
+	 * Reflex used for the display of PolygonWare (dynamic lines between consumers and producers)
+	 */
 	reflex displayReflex {
 		write "-------------------------";
 		loop tempProd over: Producer{
@@ -341,6 +376,9 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 		}
 	}
 	
+	/*
+	 * Reflex used to stop the simulation and make a final display
+	 */
 	reflex stop /*when: cycle>500*/{
 		bool isFinished <- true;
 		loop tempConso over: Consumer{
@@ -374,6 +412,9 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	
 }
 
+/*
+ * Definition of the species Consumer with its schedule (first the prestigious with priority, etc.) 
+ */
 species Consumer schedules: shuffle(Consumer where (not(each.is_built) and (each.prestigious and each.priority))) + 
 shuffle(Consumer where (not(each.is_built) and (each.prestigious and not(each.priority)))) + 
 shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and each.priority))) + 
@@ -403,6 +444,10 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 	float distanceMinType1 <- 0.0;
 	float distanceMinType2 <- 0.0;
 	
+	/*
+	 * Initialisation of Consumers: it creates a map with producers, consumers and merchants associated with their distance 
+	 * so it is not necessary to compute these values at each step
+	 */
 	action initialisation{
 		
 		if(createNewProducers){
@@ -533,17 +578,26 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 		needType2 <- need-needType1;
 	}
 	
+	/*
+	 * Updates the values of the intermediary entity which plays the role of commercial platform
+	 */
 	reflex updateInterStart when: not is_built{
 		my_inter.capacity <- need;
 		my_inter.stock <- collect;
 	}
 	
+	/*
+	 * Updates the table of relations with producers 
+	 */
 	action updateQuantityPerProd{
 		loop temp over:wareReceived{
 			quantityPerProd[temp.prodPlace]<-quantityPerProd[temp.prodPlace]+temp.quantity;
 		}
 	}
 	
+	/*
+	 * Change the built status of a consumer
+	 */
 	reflex updateBuilt when:not is_built{
 		if(collect>=needType2 and collectType1>=needType1){
 			is_built <- true;
@@ -557,6 +611,9 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 		do buyType1(consumer_strategy);
 	}
 	
+	/*
+	 * Buys the Type 1 of wares. Collects the maximum possible to the closest producer of this types and so on until all needs are collected or no more producers are available.
+	 */
 	action buyType1(int strategy){
 		list<Intermediary> temp <- Intermediary where (/*not(each.is_Consumer) and*/ each.type=1 or each.type=0);
 		if(useDistance){
@@ -685,6 +742,9 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 		do buyType2(consumer_strategy);
 	}
 	
+	/*
+	 * Activation of closed producers orcreation of new ones, for the type 2 because no producers are reachable.
+	 */
 	action activateProducer{
 		Intermediary tempProd <- (Intermediary where (each.is_Producer and (each.type=2 or each.type=0))) closest_to self;
 		if((tempProd distance_to self)>self.distanceMinType2){
@@ -746,6 +806,9 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 		}
 	}
 	
+	/*
+	 * Buys the maximum of type 2 wares to the closest reachable producer, and so on.
+	 */
 	action buyType2(int strategy){
 		list<Intermediary> temp <- Intermediary where (/*not(each.is_Consumer) and */each.type=2 or each.type=0);
 		if(useDistance){
@@ -871,6 +934,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 	}
 }
 
+//This species represent the commercial parts of consumers and proucers, as well as merchants
 species Intermediary  schedules: shuffle(Intermediary){
 	int stock <- 0;
 	int capacity <- /*rnd(*/capacityInter/*)*/;
@@ -896,6 +960,7 @@ species Intermediary  schedules: shuffle(Intermediary){
 			}
 	}
 	
+	//Reflex activated only if the intermediary is a merchant
 	reflex buying when: not is_Producer and not is_Consumer {
 		if intermediary_strategy=1 {
 			do buy1;
@@ -1021,6 +1086,8 @@ species Intermediary  schedules: shuffle(Intermediary){
 	}
 }
 
+
+//Definition of producers
 species Producer  schedules: shuffle(Producer){
 	int production <- 0 ;
 	int productionBefore;
@@ -1075,6 +1142,7 @@ species Producer  schedules: shuffle(Producer){
 	}
 }
 
+//Definition of Wares. As these wares are agents in the simulation, they may be traced.
 species Ware  schedules: shuffle(Ware){
 	int type;
 	int quantity;
@@ -1133,18 +1201,7 @@ species BackMap {//Used for the display
 experiment Spreading type: gui {
 
 	
-	// Define parameters here if necessary
-	// parameter "My parameter" category: "My parameters" var: one_global_attribute;
-	
-	// Define attributes, actions, a init section and behaviors if necessary
-	// init { }
-	
-	
 	output {
-	// Define inspectors, browsers and displays here
-	
-	// inspect one_or_several_agents;
-	//
 		display main_display background: #lightgray { 
 			species BackMap aspect:base;
 			species Consumer aspect:base;
