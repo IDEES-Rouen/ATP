@@ -48,7 +48,6 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	/*
 	 * Parameters which may be used by the user
 	 */
-	bool useDistance <- true parameter: true;
 	bool createNewProducers <- true parameter: true;
 	int consumRate <- 50 parameter:true;
 	int consumRateFixed <- 500 parameter:true;
@@ -64,6 +63,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	int initRessource <- 1000 parameter: true;
 	float init_price <- 100.0 parameter: true;
 	
+	bool useDistance <- true parameter: true;
 	bool collectProbabilist <- false parameter: true;
 	float proba_build_again <- 0.0 parameter: true min: 0.0 max: 1.0;
 	float proba_reuse <- 0.0 parameter: true min: 0.0 max: 1.0;
@@ -98,6 +98,20 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 		complexityProducer <- int(valeur["Producer"]);
 		
 		//initialisation of the environnement
+		useDistance <- false;
+		collectProbabilist <- false;
+		if(complexityConsumer<1){
+			proba_build_again <- 0.0;	
+		}
+		if(complexityProducer<3){
+			proba_reuse <- 0.0;	
+		}
+		//initialisation of the environnement
+		if(complexityEnvironment>0){
+			//distance variations
+			useDistance <- true;
+			collectProbabilist <- true;
+		}
 		if(complexityEnvironment>1){
 			//Ground variations
 			//modify the ressources of querries
@@ -160,8 +174,6 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 			do createProd(nb_total_prod_type1,1,complexityEnvironment);
 		}
 		//creation of initial producers, consumers and merchants
-		
-		//TODO : adapter la création en fonction de la compléxité (conso et prod)
 		float ratioPrioPresti <- nb_total_Consumer_prestigious/endTime;
 		float ratioPrioNotPresti <- nb_prioritary_prestigeous/endTime;
 		float ratioNotPrio <- nb_total_Consumer_not_prestigious/endTime;
@@ -232,10 +244,16 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	 */
 	action createConsum(int nb_conso, bool prestig, bool prio, int complexEnv){
 		create Consumer number: nb_conso{
-			//TODO
-			//location depends on the environment complexity
-			location <- any_location_in(first(BackMap));
-			prestigious <- prestig;
+			if(complexityConsumer<3){
+				location <- any_location_in(first(BackMap));
+			} else {
+				if(complexityEnvironment>1){
+				//Ground variations
+				}
+				if(complexityEnvironment>2){
+					//integrating political areas
+				}
+			}			prestigious <- prestig;
 			priority <- prio;
 			create Intermediary number: 1{
 				location <-myself.location;
@@ -264,9 +282,13 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	action createProd(int nb_prod, int typeProd, int complexEnv){
 		create Producer number: nb_prod{
 			type<-typeProd;
-			//TODO
-			//location depends on the environment complexity
 			location <- any_location_in(first(BackMap));
+			if(complexityEnvironment>1){
+			//Ground variations
+			}
+			if(complexityEnvironment>2){
+				//integrating political areas
+			}
 			if(type=1){
 				create Producer number: 1{
 				type<-2;
@@ -338,45 +360,49 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	 */
 	reflex updateSimulation{
 		//Re-building (loop over all consumers built, proba to augment the needs and is_built is false)
-		loop tempConsum over: Consumer where (each.is_built){
-			if(flip(proba_build_again) and tempConsum.need<3*consumRateFixed){
-				tempConsum.is_built <- false;
-				tempConsum.need <- tempConsum.need + rnd(consumRate);
-				if tempConsum.prestigious {
-					tempConsum.needType1 <- round(tempConsum.need*percentageType1Prestigeous);
-				} else {
-					tempConsum.needType1 <- round(tempConsum.need*percentageType1NotPrestigeous);
+		if(complexityConsumer>0){
+			loop tempConsum over: Consumer where (each.is_built){
+				if(flip(proba_build_again) and tempConsum.need<3*consumRateFixed){
+					tempConsum.is_built <- false;
+					tempConsum.need <- tempConsum.need + rnd(consumRate);
+					if tempConsum.prestigious {
+						tempConsum.needType1 <- round(tempConsum.need*percentageType1Prestigeous);
+					} else {
+						tempConsum.needType1 <- round(tempConsum.need*percentageType1NotPrestigeous);
+					}
+					tempConsum.needType2 <- tempConsum.need-tempConsum.needType1;
 				}
-				tempConsum.needType2 <- tempConsum.need-tempConsum.needType1;
 			}
 		}
 		
 		//Re-usability (clear reusability before creating new one)
-		loop tempConsum over: Consumer where (each.is_reused){
-			tempConsum.collectType1 <- tempConsum.collectType1 + tempConsum.quantity_reused_type1;
-			tempConsum.quantity_reused_type1 <- 0;
-			tempConsum.collect <- tempConsum.collect + tempConsum.quantity_reused_type2;
-			tempConsum.quantity_reused_type2 <- 0;
-			tempConsum.is_reused <- false;
-		}
-		
-		list<Consumer> consumReuse <- nil;
-		if(reuse_while_built and not(reuse_while_building)){
-			consumReuse <-  Consumer where (each.is_built);
-		}
-		if(not(reuse_while_built) and reuse_while_building){
-			consumReuse <-  Consumer where (not(each.is_built));
-		}
-		if(reuse_while_built and reuse_while_building){
-			consumReuse <- list(Consumer);
-		}
-		loop tempConsum over: consumReuse {
-			if(flip(proba_reuse)){
-				tempConsum.is_reused <- true;
-				tempConsum.quantity_reused_type1 <- round(0.1*tempConsum.collectType1);
-				tempConsum.collectType1 <- tempConsum.collectType1 - tempConsum.quantity_reused_type1;
-				tempConsum.quantity_reused_type2 <- round(0.1*tempConsum.collect);
-				tempConsum.collect <- tempConsum.collect - tempConsum.quantity_reused_type2;
+		if(complexityProducer>2){
+			loop tempConsum over: Consumer where (each.is_reused){
+				tempConsum.collectType1 <- tempConsum.collectType1 + tempConsum.quantity_reused_type1;
+				tempConsum.quantity_reused_type1 <- 0;
+				tempConsum.collect <- tempConsum.collect + tempConsum.quantity_reused_type2;
+				tempConsum.quantity_reused_type2 <- 0;
+				tempConsum.is_reused <- false;
+			}
+			
+			list<Consumer> consumReuse <- nil;
+			if(reuse_while_built and not(reuse_while_building)){
+				consumReuse <-  Consumer where (each.is_built);
+			}
+			if(not(reuse_while_built) and reuse_while_building){
+				consumReuse <-  Consumer where (not(each.is_built));
+			}
+			if(reuse_while_built and reuse_while_building){
+				consumReuse <- list(Consumer);
+			}
+			loop tempConsum over: consumReuse {
+				if(flip(proba_reuse)){
+					tempConsum.is_reused <- true;
+					tempConsum.quantity_reused_type1 <- round(0.1*tempConsum.collectType1);
+					tempConsum.collectType1 <- tempConsum.collectType1 - tempConsum.quantity_reused_type1;
+					tempConsum.quantity_reused_type2 <- round(0.1*tempConsum.collect);
+					tempConsum.collect <- tempConsum.collect - tempConsum.quantity_reused_type2;
+				}
 			}
 		}
 		
@@ -534,7 +560,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 	 */
 	action initialisation{
 		
-		if(createNewProducers){
+		if(complexityConsumer > 1 and createNewProducers){
 			if(prestigious){
 				distanceMinType2 <- distanceMaxPrestigeous;
 			} else {
@@ -654,10 +680,12 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 			}
 				
 		}
-		if prestigious {
-			needType1 <- round(need*percentageType1Prestigeous);
-		} else {
-			needType1 <- round(need*percentageType1NotPrestigeous);
+		if(complexityConsumer>1){
+			if prestigious {
+				needType1 <- round(need*percentageType1Prestigeous);
+			} else {
+				needType1 <- round(need*percentageType1NotPrestigeous);
+			}
 		}
 		needType2 <- need-needType1;
 	}
@@ -691,19 +719,36 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 		time_to_be_built <- time_to_be_built +1;
 	}
 	
-	//TODO : Pour la complexité 0 et 1, faire un achat indifférencié des types 1 et 2 (achat du max possible au prod le plus proche, ou en reuse si complexityProd>3, quelque soit son type).
-	//Si complexe 0 ou 1 : achat = achat type 2 (avec réactivation de carrière)
-	//TODO : faire un unique reflexe d'achat, qui appellera achat 1 et 2 si la compléxité l'éxige
-	reflex buyingType1 when: not is_built{
-		do buyType1;
+
+	reflex buy when: not is_built{
+		//Gérer l'achat en fonction de la complexité du consomateur et du producteur. Si 1 Type, achat de type 2
+		if(complexityConsumer>1){
+			//Buying type 1
+			if(complexityProducer>1){
+				do buyType1;
+				
+			} else {
+				collectType1 <- needType1;
+				write "NO TYPE 1 PRODUCER";
+			}
+		}
+		//buying Type 2
+		if(createNewProducers){
+			//TODO : Debug the creation (too much producer created)
+			do activateProducer;
+		}
+		do buyType2(complexityConsumer);
+		
 	}
+//	reflex buyingType1 when: not is_built{
+//		do buyType1;
+//	}
 	
 	/*
 	 * Buys the Type 1 of wares. Collects the maximum possible to the closest producer of this types and so on until all needs are collected or no more producers are available.
 	 */
 	action buyType1{
 		list<Intermediary> temp <- Intermediary where (/*not(each.is_Consumer) and*/ each.type=1 or each.type=0);
-		//TODO : Replace Use Distance by environment complexity
 		//Type 0 is for reusability
 		if(useDistance){
 			temp <- temp sort_by((each distance_to self) + each.price);
@@ -819,18 +864,18 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 		my_inter.stock <- collectType1;
 	}
 
-	reflex buyingType2 when: not is_built{
-//		if(priority){
-//			needType2 <- need - collectType1;
-//			needType1 <- collectType1;
-//		}
-	//check if there is somewhere to buy. If no, activate the closer producer or create a new one. Then buy.
-	if(createNewProducers){
-		//TODO : Debut the creation (too much producer created)
-		do activateProducer;
-	}
-		do buyType2;
-	}
+//	reflex buyingType2 when: not is_built{
+////		if(priority){
+////			needType2 <- need - collectType1;
+////			needType1 <- collectType1;
+////		}
+//	//check if there is somewhere to buy. If no, activate the closer producer or create a new one. Then buy.
+//	if(createNewProducers){
+//		//TODO : Debut the creation (too much producer created)
+//		do activateProducer;
+//	}
+//		do buyType2;
+//	}
 	
 	/*
 	 * Activation of closed producers orcreation of new ones, for the type 2 because no producers are reachable.
@@ -896,8 +941,13 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 	/*
 	 * Buys the maximum of type 2 wares to the closest reachable producer, and so on.
 	 */
-	action buyType2{
-		list<Intermediary> temp <- Intermediary where (/*not(each.is_Consumer) and */each.type=2 or each.type=0);
+	action buyType2(int complexConsum){
+		list<Intermediary> temp; 
+		if(complexConsum < 2){
+			temp <- Intermediary where (each.type=1 or each.type=2 or each.type=0);
+		} else {
+			temp <- Intermediary where (/*not(each.is_Consumer) and */each.type=2 or each.type=0);
+		}
 		if(useDistance){
 			temp <- temp sort_by((each distance_to self) + each.price);
 		} else {
