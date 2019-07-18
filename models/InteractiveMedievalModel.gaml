@@ -29,7 +29,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	 * Temporary variables for the environment
 	 */
 //	bool use_map <- true parameter:true;
-	int areaMap <- 2000 parameter: true;
+	int areaMap <- 110 parameter: true;
 	int endTime <- 500 parameter: true;
 	
 	file envelopeMap_shapefile <- file("../includes/envelopeMap.shp");
@@ -53,8 +53,8 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	int consumRateFixed <- 500 parameter:true;
 	float percentageType1Prestigeous <- 0.0 parameter: true min: 0.0 max: 1.0; //between 0 and 1
 	float percentageType1NotPrestigeous <- 0.0 parameter: true min: 0.0 max: 1.0; //between 0 and 1
-	float distanceMaxPrestigeous <- 500.0 parameter:true;
-	float distanceMaxNotPrestigeous <- 100.0 parameter:true;
+	float distanceMaxPrestigeous <- 50.0 parameter:true;
+	float distanceMaxNotPrestigeous <- 10.0 parameter:true;
 	float distanceMaxIntermediary <- 1500.0 parameter:true;
 	int capacityInter <- 30 parameter: true;
 	int stock_max_prod <- 10 parameter: true;
@@ -863,19 +863,6 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 		my_inter.capacity <- needType1;
 		my_inter.stock <- collectType1;
 	}
-
-//	reflex buyingType2 when: not is_built{
-////		if(priority){
-////			needType2 <- need - collectType1;
-////			needType1 <- collectType1;
-////		}
-//	//check if there is somewhere to buy. If no, activate the closer producer or create a new one. Then buy.
-//	if(createNewProducers){
-//		//TODO : Debut the creation (too much producer created)
-//		do activateProducer;
-//	}
-//		do buyType2;
-//	}
 	
 	/*
 	 * Activation of closed producers orcreation of new ones, for the type 2 because no producers are reachable.
@@ -1067,7 +1054,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 	}
 	
 	aspect base {
-		draw square(10) color: prestigious ? #darkblue : #blue;
+		draw square(1) color: prestigious ? #darkblue : #blue;
 	}
 }
 
@@ -1206,7 +1193,7 @@ species Producer  schedules: shuffle(Producer){
 	
 	aspect base {
 		if(activated){
-			draw triangle(10) color:type=1 ? #darkred : #red;
+			draw triangle(1) color:type=1 ? #darkred : #red;
 		}
 	}
 }

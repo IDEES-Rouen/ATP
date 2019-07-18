@@ -30,7 +30,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	 * variables for the environment
 	 */
 //	bool use_map <- true parameter:true;
-	int areaMap <- 2000 parameter: true;
+	int areaMap <- 110 parameter: true;
 	int endTime <- 500 parameter: true;
 	
 	file envelopeMap_shapefile <- file("../includes/envelopeMap.shp");
@@ -54,8 +54,8 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	int consumRateFixed <- 500 parameter:true;
 	float percentageType1Prestigeous <- 0.0 parameter: true min: 0.0 max: 1.0; //between 0 and 1
 	float percentageType1NotPrestigeous <- 0.0 parameter: true min: 0.0 max: 1.0; //between 0 and 1
-	float distanceMaxPrestigeous <- 500.0 parameter:true;
-	float distanceMaxNotPrestigeous <- 100.0 parameter:true;
+	float distanceMaxPrestigeous <- 50.0 parameter:true;
+	float distanceMaxNotPrestigeous <- 10.0 parameter:true;
 	float distanceMaxIntermediary <- 1500.0 parameter:true;
 	int capacityInter <- 30 parameter: true;
 	int stock_max_prod <- 10 parameter: true;
@@ -689,9 +689,6 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious))))
 		
 	}
 	
-//	reflex buyingType1 when: not is_built{
-//		do buyType1;
-//	}
 	
 	/*
 	 * Buys the Type 1 of wares. Collects the maximum possible to the closest producer of this types and so on until all needs are collected or no more producers are available.
@@ -811,19 +808,6 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious))))
 		my_inter.capacity <- needType1;
 		my_inter.stock <- collectType1;
 	}
-
-//	reflex buyingType2 when: not is_built{
-////		if(priority){
-////			needType2 <- need - collectType1;
-////			needType1 <- collectType1;
-////		}
-//	//check if there is somewhere to buy. If no, activate the closer producer or create a new one. Then buy.
-//	if(createNewProducers){
-//		//TODO : Debug the creation (too much producer created)
-//		do activateProducer;
-//	}
-//		do buyType2;
-//	}
 	
 	/*
 	 * Activation of closed producers orcreation of new ones, for the type 2 because no producers are reachable.
@@ -840,8 +824,11 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious))))
 		create Producer number: 1{
 			type<-2;
 			geometry area <- (circle(distance,test.location)) inter first(BackMap);
-			//TODO : s'assurer qu le nouveau n'est pas sur un endroit déjà pris
-			location <- one_of(parcels).location;//any_location_in(area);
+			myParcel <- one_of(parcels where each.is_free);
+			ask myParcel{
+				is_free <- false;
+			}
+			location <- myParcel.location;//any_location_in(first(BackMap));
 			create Intermediary number: 1{
 				location <-myself.location;
 				is_Consumer <- false;
@@ -1016,7 +1003,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious))))
 	}
 	
 	aspect base {
-		draw square(10) color: prestigious ? #darkblue : #blue;
+		draw square(1) color: prestigious ? #darkblue : #blue;
 	}
 }
 
@@ -1152,7 +1139,7 @@ species Producer  schedules: shuffle(Producer){
 	
 	aspect base {
 		if(activated){
-			draw triangle(10) color:type=1 ? #darkred : #red;
+			draw triangle(1) color:type=1 ? #darkred : #red;
 		}
 	}
 }
