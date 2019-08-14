@@ -83,9 +83,9 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 //	int producer_strategy <- 1 parameter: true min: 1 max: 2; //1: produce just what has been oredered. 2: produce the maximum it can
 	
 	
-	int complexityEnvironment <-0;
-	int complexityConsumer <- 0;
-	int complexityProducer <- 0;
+	int complexityEnvironment <-0;//0 = no complexity; 1 = use distance; 2 = ground properties; 3 = policies; 4 = real case; 5 = open world;
+	int complexityConsumer <- 0;//0 = no rebuilt; 1 = rebuilt; 2 = 2 ypes of needs + priority and prestige; 3 = real localisation;
+	int complexityProducer <- 0;//0 = production infinite; 1 = production not infinite; 2 = 2 types of prod; 3 = reuse;
 	/*
 	 * Initialisation of the simulation
 	 */
@@ -734,7 +734,6 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 		}
 		//buying Type 2
 		if(createNewProducers){
-			//TODO : Debug the creation (too much producer created)
 			do activateProducer;
 		}
 		do buyType2(complexityConsumer);
