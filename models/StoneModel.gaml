@@ -45,6 +45,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	float averageDistance <- 0.0;
 	float distanceMax <- 0.0;
 	float distanceMin <- 0.0;
+	float builtTimeAverage<-0.0;
 	
 	/*
 	 * Parameters which may be used by the user
@@ -89,6 +90,12 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	int complexityEnvironment <-0 parameter: true min: 0 max: 5; //0 = no complexity; 1 = use distance; 2 = ground properties; 3 = policies; 4 = real case; 5 = open world;
 	int complexityConsumer <- 0 parameter: true min: 0 max: 3; //0 = no rebuilt; 1 = rebuilt; 2 = 2 ypes of needs + priority and prestige; 3 = real localisation;
 	int complexityProducer <- 0 parameter: true min: 0 max: 3; //0 = production infinite; 1 = production not infinite; 2 = 2 types of prod; 3 = reuse; 
+	
+	/*
+	 * Output values
+	 */
+	float outputDistance -> averageDistance;
+	float outputBuildigTime -> builtTimeAverage;
 	
 	/*
 	 * Initialisation of the simulation
@@ -466,7 +473,6 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 		if isFinished {
 			int builtTimeMax<-first(Consumer).time_to_be_built;
 			int builtTimeMin<-first(Consumer).time_to_be_built;
-			float builtTimeAverage<-0.0;
 			loop tempConso over:Consumer{
 				if tempConso.time_to_be_built > builtTimeMax {
 					builtTimeMax <- tempConso.time_to_be_built;
