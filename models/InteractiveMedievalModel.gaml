@@ -78,6 +78,10 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	float proba_new_Prestigious_Not_Priority <- 0.0;
 	float proba_new_Not_Prestigious <- 0.0;
 	
+	float ratioPrioPresti <- nb_total_Consumer_prestigious/endTime;
+	float ratioPrioNotPresti <- nb_prioritary_prestigeous/endTime;
+	float ratioNotPrio <- nb_total_Consumer_not_prestigious/endTime;
+	
 //	int consumer_strategy <- 1 parameter: true min: 1 max: 2; //1:buy to producers and intermediaries. 2:only buy to inermediairies.
 //	int intermediary_strategy <- 3 parameter: true min:1 max: 3; //1: buy the stock. 2: buy stock and place orders. 3: only place orders.
 //	int producer_strategy <- 1 parameter: true min: 1 max: 2; //1: produce just what has been oredered. 2: produce the maximum it can
@@ -174,9 +178,6 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 			do createProd(nb_total_prod_type1,1,complexityEnvironment);
 		}
 		//creation of initial producers, consumers and merchants
-		float ratioPrioPresti <- nb_total_Consumer_prestigious/endTime;
-		float ratioPrioNotPresti <- nb_prioritary_prestigeous/endTime;
-		float ratioNotPrio <- nb_total_Consumer_not_prestigious/endTime;
 		
 		if(ratioPrioPresti<1.0){
 			proba_new_Prestigious_Priority <- ratioPrioPresti;
@@ -184,29 +185,38 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 				do createConsum(1,true,true,complexityEnvironment);
 			}
 		} else {
-			proba_new_Prestigious_Priority <- 1.0;
 			newConsumerPrestigiousPrioritary <- round(ratioPrioPresti);	
 			do createConsum(newConsumerPrestigiousPrioritary,true,true,complexityEnvironment);
+			proba_new_Prestigious_Priority <- ratioPrioPresti - newConsumerPrestigiousPrioritary;
+			if(flip(proba_new_Prestigious_Priority)){
+				do createConsum(1,true,true,complexityEnvironment);
+			}
 		}
 		if(ratioPrioNotPresti<1.0){
 			proba_new_Prestigious_Not_Priority <- ratioPrioNotPresti;
-			if(flip(proba_new_Prestigious_Priority)){
+			if(flip(proba_new_Prestigious_Not_Priority)){
 				do createConsum(1,true,false,complexityEnvironment);
 			}
 		} else {
-			proba_new_Prestigious_Not_Priority <- 1.0;
 			newConsumerPrestigiousNotPrioritary <- round(ratioPrioNotPresti);
 			do createConsum(newConsumerPrestigiousNotPrioritary,true,false,complexityEnvironment);
+			proba_new_Prestigious_Not_Priority <- ratioPrioNotPresti - newConsumerPrestigiousNotPrioritary;
+			if(flip(proba_new_Prestigious_Not_Priority)){
+				do createConsum(1,true,false,complexityEnvironment);
+			}
 		}
 		if(ratioNotPrio<1.0){
 			proba_new_Not_Prestigious <- ratioNotPrio;
-			if(flip(proba_new_Prestigious_Priority)){
+			if(flip(proba_new_Not_Prestigious)){
 				do createConsum(1,false,false,complexityEnvironment);
 			}
 		} else {
-			proba_new_Not_Prestigious <- 1.0;
 			newConsumerNotPrestigious <- round(ratioNotPrio);
-			do createConsum(newConsumerPrestigiousNotPrioritary,false,false,complexityEnvironment);
+			do createConsum(newConsumerNotPrestigious,false,false,complexityEnvironment);
+			proba_new_Not_Prestigious <- ratioNotPrio - newConsumerNotPrestigious;
+			if(flip(proba_new_Not_Prestigious)){
+				do createConsum(1,false,false,complexityEnvironment);
+			}
 		}
 		do createInter(nb_total_Intermediary_type1,1);
 		do createInter(nb_total_Intermediary_type1,2);
@@ -407,26 +417,35 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 		}
 		
 		//creating new consumers (initialize them and add them o others intermediary buyers as potential re-usability)
-		if(proba_new_Prestigious_Priority<1.0){
+		if(ratioPrioPresti<1.0){
 			if(flip(proba_new_Prestigious_Priority)){
 				do createConsum(1,true,true,complexityEnvironment);
 			}
 		} else {
 			do createConsum(newConsumerPrestigiousPrioritary,true,true,complexityEnvironment);
-		}
-		if(proba_new_Prestigious_Priority<1.0){
 			if(flip(proba_new_Prestigious_Priority)){
+				do createConsum(1,true,true,complexityEnvironment);
+			}
+		}
+		if(ratioPrioNotPresti<1.0){
+			if(flip(proba_new_Prestigious_Not_Priority)){
 				do createConsum(1,true,false,complexityEnvironment);
 			}
 		} else {
 			do createConsum(newConsumerPrestigiousNotPrioritary,true,false,complexityEnvironment);
+			if(flip(proba_new_Prestigious_Not_Priority)){
+				do createConsum(1,true,false,complexityEnvironment);
+			}
 		}
-		if(proba_new_Prestigious_Priority<1.0){
-			if(flip(proba_new_Prestigious_Priority)){
+		if(ratioNotPrio<1.0){
+			if(flip(proba_new_Not_Prestigious)){
 				do createConsum(1,false,false,complexityEnvironment);
 			}
 		} else {
-			do createConsum(newConsumerPrestigiousNotPrioritary,false,false,complexityEnvironment);
+			do createConsum(newConsumerNotPrestigious,false,false,complexityEnvironment);
+			if(flip(proba_new_Not_Prestigious)){
+				do createConsum(1,false,false,complexityEnvironment);
+			}
 		}
 	}
 	
