@@ -243,6 +243,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 				}
 				location <- myParcel.location;//any_location_in(first(BackMap));
 			} else {
+				//Precise localisation
 				if(complexityEnvironment>1){
 				//Ground variations
 				}
