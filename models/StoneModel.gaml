@@ -18,9 +18,9 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	/*
 	 * Total numbers of each type of species 
 	 */
-	float nb_total_Consumer_prestigious <- 200.0 parameter: true;
-	float nb_prioritary_prestigeous<- 100.0 parameter:true;
-	float nb_total_Consumer_not_prestigious <- 2000.0 parameter: true;
+	float nb_total_Consumer_prestigious <- 10.0;//200.0 parameter: true;
+	float nb_prioritary_prestigeous<- 0.0;//100.0 parameter:true;
+	float nb_total_Consumer_not_prestigious <- 0.0;//100.0 parameter: true;
 	int nb_total_Intermediary_type1 <- 0 parameter: true;
 	int nb_total_Intermediary_type2 <- 0 parameter: true;
 	int nb_total_prod_type1 <- 5 parameter: true;
@@ -31,7 +31,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	 */
 //	bool use_map <- true parameter:true;
 	int areaMap <- 110 parameter: true;
-	int endTime <- 500 parameter: true;
+	int endTime <- 50/*0*/ parameter: true;
 	
 	file envelopeMap_shapefile <- file("../includes/envelopeMap.shp");
 	file backMap_shapefile <- file("../includes/backMap.shp");
@@ -45,7 +45,11 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	float averageDistance <- 0.0;
 	float distanceMax <- 0.0;
 	float distanceMin <- 0.0;
-	float builtTimeAverage<-0.0;
+	float builtTimeAverage <- 0.0;
+	float medianProducer <- 0.0;
+	float averageProducer <- 0.0;
+	float firstQuartilProduce <- 0.0; //quantile (container, 0.25)
+	float thirdQuartilProduce <- 0.0; //quantile (container, 0.75)
 	
 	/*
 	 * Parameters which may be used by the user
@@ -91,7 +95,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 //	int intermediary_strategy <- 3 parameter: true min:1 max: 3; //1: buy the stock. 2: buy stock and place orders. 3: only place orders.
 //	int producer_strategy <- 1 parameter: true min: 1 max: 2; //1: produce just what has been oredered. 2: produce the maximum it can
 	
-	int complexityEnvironment <-0 parameter: true min: 0 max: 5; //0 = no complexity; 1 = use distance; 2 = ground properties; 3 = policies; 4 = real case; 5 = open world;
+	int complexityEnvironment <- 0 parameter: true min: 0 max: 5; //0 = no complexity; 1 = use distance; 2 = ground properties; 3 = policies; 4 = real case; 5 = open world;
 	int complexityConsumer <- 0 parameter: true min: 0 max: 3; //0 = no rebuilt; 1 = rebuilt; 2 = 2 ypes of needs + priority and prestige; 3 = real localisation;
 	int complexityProducer <- 0 parameter: true min: 0 max: 3; //0 = production infinite; 1 = production not infinite; 2 = 2 types of prod; 3 = reuse; 
 	
@@ -291,7 +295,27 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 			if(complexityEnvironment>2){
 				//integrating political areas
 			}
-			location <- one_of(parcels).location;//any_location_in(first(BackMap));
+			if(type=1){
+				create Producer number: 1{
+				type<-2;
+				location <- myself.location;
+				personnalInitRessource <- int(#max_int);
+					create Intermediary number: 1{
+						location <-myself.location;
+						is_Consumer <- false;
+						my_consum <- nil;
+						is_Producer <- true;
+						my_prod <- myself;
+						capacity <- myself.stockMax;
+						stock <- myself.stock;
+						type<-2;
+						
+						ask myself{
+							my_inter <- myself;
+						}
+					}
+				}
+			}
 			create Intermediary number: 1{
 				location <-myself.location;
 				is_Consumer <- false;
@@ -501,10 +525,27 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 					builtTimeMin <- tempConso.time_to_be_built;
 				}
 				builtTimeAverage <- builtTimeAverage + tempConso.time_to_be_built;
+				//computation of nb of prod for each consum
+				loop i over: tempConso.presenceProd.keys {
+					if(tempConso.presenceProd[i]){
+						tempConso.numberProducer <- tempConso.numberProducer+1.0;
+					}
+				}
+//				write "number Prod" + tempConso.numberProducer;
 			}
+			//Computation of median and quartiles of the number of producer per consumer
+			list<float> numberProdPerConsumer <- Consumer collect each.numberProducer;
+			medianProducer <- median(numberProdPerConsumer);
+			averageProducer <- mean(numberProdPerConsumer);
+			firstQuartilProduce <- quantile(numberProdPerConsumer,0.25);
+			thirdQuartilProduce <- quantile(numberProdPerConsumer,0.75); 
 			write "Max time : " + builtTimeMax;
 			write "Average time : " + builtTimeAverage/length(Consumer);
 			write "Min time : " + builtTimeMin;
+			write "medianProd " + medianProducer;
+			write "averageProd " + averageProducer;
+			write "first quantile " + firstQuartilProduce;
+			write "third quantile " + thirdQuartilProduce;
 			
 			do pause;
 		}
@@ -542,6 +583,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious))))
 	
 	float distanceMinType1 <- 0.0;
 	float distanceMinType2 <- 0.0;
+	float numberProducer <- 0.0;
 	
 	parcels myParcel;
 	
@@ -577,81 +619,93 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious))))
 		}
 		
 		loop temp over: (Intermediary where(not (each.my_consum=self))/* where (not(each.is_Consumer))*/){
-			if prestigious{
-				float computationType1 <- -(((self distance_to temp) + temp.price)-(distanceMinType1+distanceMaxPrestigeous))/distanceMaxPrestigeous; 
-				float computationType2 <- -(((self distance_to temp) + temp.price)-(distanceMinType2+distanceMaxPrestigeous))/distanceMaxPrestigeous;
-				if(computationType1 < 0.0){
-					computationType1 <- 0.0;
-				}
-				if(computationType1 > 1.0){
-					computationType1 <- 1.0;
-				}
-				if(computationType2 < 0.0){
-					computationType2 <- 0.0;
-				}
-				if(computationType2 > 1.0){
-					computationType2 <- 1.0;
-				}
-				if(temp.type=1){
-					add temp::computationType1 to:percentageCollect;
-				} else if (temp.type=2){
-					add temp::computationType2 to:probabilitiesProd;
-				} else if (temp.type=0){
-					add temp::computationType1 to:percentageCollect;
-					add temp::computationType2 to:probabilitiesProd;
-				}
-			} else {
-				float computationType1 <- -(((self distance_to temp) + temp.price)-(distanceMinType1+distanceMaxNotPrestigeous))/distanceMaxNotPrestigeous;
-				float computationType2 <- -(((self distance_to temp) + temp.price)-(distanceMinType2+distanceMaxNotPrestigeous))/distanceMaxNotPrestigeous;
-				if(computationType1 < 0.0){
-					computationType1 <- 0.0;
-				}
-				if(computationType1 > 1.0){
-					computationType1 <- 1.0;
-				}
-				if(computationType2 < 0.0){
-					computationType2 <- 0.0;
-				}
-				if(computationType2 > 1.0){
-					computationType2 <- 1.0;
-				}
-				if(temp.type=1){
-					add temp::computationType1 to:percentageCollect;
-				} else if (temp.type=2){
-					add temp::computationType2 to:probabilitiesProd;
-				} else if (temp.type=0){
-					add temp::computationType1 to:percentageCollect;
-					add temp::computationType2 to:probabilitiesProd;
-				}
-			}
-			if(not(temp.is_Producer)){
-				if(temp.is_Consumer){
-					float computationTemp;
-					if(temp.my_consum.prestigious){
-						computationTemp <- -(((self distance_to temp) + temp.price)-(distanceMinType2+distanceMaxPrestigeous))/distanceMaxPrestigeous;
-					} else {
-						computationTemp <- -(((self distance_to temp) + temp.price)-(distanceMinType2+distanceMaxNotPrestigeous))/distanceMaxNotPrestigeous;
+			if(complexityEnvironment > 0) {
+				if prestigious{
+					float computationType1 <- -(((self distance_to temp) + temp.price)-(distanceMinType1+distanceMaxPrestigeous))/distanceMaxPrestigeous; 
+					float computationType2 <- -(((self distance_to temp) + temp.price)-(distanceMinType2+distanceMaxPrestigeous))/distanceMaxPrestigeous;
+					if(computationType1 < 0.0){
+						computationType1 <- 0.0;
 					}
-					if(computationTemp < 0.0){
-						computationTemp <- 0.0;
+					if(computationType1 > 1.0){
+						computationType1 <- 1.0;
 					}
-					if(computationTemp > 1.0){
-						computationTemp <- 1.0;
+					if(computationType2 < 0.0){
+						computationType2 <- 0.0;
 					}
-					add self.my_inter::computationTemp to:temp.my_consum.percentageCollect;
-					add self.my_inter::computationTemp to:temp.my_consum.probabilitiesProd;
-					
+					if(computationType2 > 1.0){
+						computationType2 <- 1.0;
+					}
+					if(temp.type=1){
+						add temp::computationType1 to:percentageCollect;
+					} else if (temp.type=2){
+						add temp::computationType2 to:probabilitiesProd;
+					} else if (temp.type=0){
+						add temp::computationType1 to:percentageCollect;
+						add temp::computationType2 to:probabilitiesProd;
+					}
 				} else {
-					float computationTemp2 <- (distanceMaxIntermediary-((self distance_to temp) + temp.price))/distanceMaxIntermediary;
-					if(computationTemp2 < 0.0){
-						computationTemp2 <- 0.0;
+					float computationType1 <- -(((self distance_to temp) + temp.price)-(distanceMinType1+distanceMaxNotPrestigeous))/distanceMaxNotPrestigeous;
+					float computationType2 <- -(((self distance_to temp) + temp.price)-(distanceMinType2+distanceMaxNotPrestigeous))/distanceMaxNotPrestigeous;
+					if(computationType1 < 0.0){
+						computationType1 <- 0.0;
 					}
-					if(computationTemp2 > 1.0){
-						computationTemp2 <- 1.0;
+					if(computationType1 > 1.0){
+						computationType1 <- 1.0;
 					}
-					add  self.my_inter::computationTemp2 to:temp.percentageCollect;
+					if(computationType2 < 0.0){
+						computationType2 <- 0.0;
+					}
+					if(computationType2 > 1.0){
+						computationType2 <- 1.0;
+					}
+					if(temp.type=1){
+						add temp::computationType1 to:percentageCollect;
+					} else if (temp.type=2){
+						add temp::computationType2 to:probabilitiesProd;
+					} else if (temp.type=0){
+						add temp::computationType1 to:percentageCollect;
+						add temp::computationType2 to:probabilitiesProd;
+					}
+				}
+				if(not(temp.is_Producer)){
+					if(temp.is_Consumer){
+						float computationTemp;
+						if(temp.my_consum.prestigious){
+							computationTemp <- -(((self distance_to temp) + temp.price)-(distanceMinType2+distanceMaxPrestigeous))/distanceMaxPrestigeous;
+						} else {
+							computationTemp <- -(((self distance_to temp) + temp.price)-(distanceMinType2+distanceMaxNotPrestigeous))/distanceMaxNotPrestigeous;
+						}
+						if(computationTemp < 0.0){
+							computationTemp <- 0.0;
+						}
+						if(computationTemp > 1.0){
+							computationTemp <- 1.0;
+						}
+						add self.my_inter::computationTemp to:temp.my_consum.percentageCollect;
+						add self.my_inter::computationTemp to:temp.my_consum.probabilitiesProd;
+						
+					} else {
+						float computationTemp2 <- (distanceMaxIntermediary-((self distance_to temp) + temp.price))/distanceMaxIntermediary;
+						if(computationTemp2 < 0.0){
+							computationTemp2 <- 0.0;
+						}
+						if(computationTemp2 > 1.0){
+							computationTemp2 <- 1.0;
+						}
+						add  self.my_inter::computationTemp2 to:temp.percentageCollect;
+					}
+				
 				}
 			
+			} else {
+				if(temp.type=1){
+						add temp::1.0 to:percentageCollect;
+					} else if (temp.type=2){
+						add temp::1.0 to:probabilitiesProd;
+					} else if (temp.type=0){
+						add temp::1.0 to:percentageCollect;
+						add temp::1.0 to:probabilitiesProd;
+					}
 			}
 				
 		}
@@ -695,7 +749,6 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious))))
 	}
 	
 	reflex buy when: not is_built{
-		//Gérer l'achat en fonction de la complexité du consomateur et du producteur. Si 1 Type, achat de type 2
 		if(complexityConsumer>1){
 			//Buying type 1
 			if(complexityProducer>1){
@@ -707,7 +760,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious))))
 			}
 		}
 		//buying Type 2
-		if(createNewProducers){
+		if(createNewProducers and complexityEnvironment>0){
 			do activateProducer;
 		}
 		do buyType2(complexityConsumer);
@@ -902,10 +955,10 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious))))
 	/*
 	 * Buys the maximum of type 2 wares to the closest reachable producer, and so on.
 	 */
-	action buyType2(int complexConsum){
+	action buyType2(int complexProd){
 		list<Intermediary> temp; 
-		if(complexConsum < 2){
-			temp <- Intermediary where (each.type=1 or each.type=2 or each.type=0);
+		if(complexProd < 3){
+			temp <- Intermediary where (each.type=2);
 		} else {
 			temp <- Intermediary where (/*not(each.is_Consumer) and */each.type=2 or each.type=0);
 		}
@@ -1105,6 +1158,7 @@ species Intermediary  schedules: shuffle(Intermediary){
 
 //Definition of producers
 species Producer  schedules: shuffle(Producer){
+	int personnalInitRessource <- 0;
 	int production <- 0 ;
 	int productionBefore;
 	int stock <- 0 ;
@@ -1127,12 +1181,15 @@ species Producer  schedules: shuffle(Producer){
 			ressource <- int(#max_int);
 			stockMax <- stock_max_prod_fixe_type1;
 		}
-		if(complexityProducer > 2){
+		if(complexityProducer > 1){
 			if(type=1){
 				ressource <- int(#max_int);
 				stockMax <- stock_max_prod_fixe_type1;
 			} else {
-				ressource <- initRessource;
+				if(personnalInitRessource=0){
+					personnalInitRessource <- initRessource;
+				}
+				ressource <- personnalInitRessource;
 				stockMax <- stock_max_prod_fixe_type2;
 			}
 		}
@@ -1225,7 +1282,7 @@ species BackMap {//Used for the display
 	}
 }
 
-grid parcels width: 1100 height: 1100 neighbors:4 {
+grid parcels width: 1100 height: 1100 neighbors:4 schedules:[]{
 	rgb color <- #white;
 	bool is_free <- true;
 	int altitude;

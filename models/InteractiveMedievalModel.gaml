@@ -18,9 +18,9 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	/*
 	 * Total numbers of each type of species 
 	 */
-	float nb_total_Consumer_prestigious <- 200.0 parameter: true;
-	float nb_prioritary_prestigeous<- 100.0 parameter:true;
-	float nb_total_Consumer_not_prestigious <- 2000.0 parameter: true;
+	float nb_total_Consumer_prestigious <- 20.0;//200.0 parameter: true;
+	float nb_prioritary_prestigeous<- 0.0;//100.0 parameter:true;
+	float nb_total_Consumer_not_prestigious <- 0.0;//2000.0 parameter: true;
 	int nb_total_Intermediary_type1 <- 0 parameter: true;
 	int nb_total_Intermediary_type2 <- 0 parameter: true;
 	int nb_total_prod_type1 <- 5 parameter: true;
@@ -30,7 +30,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	 */
 //	bool use_map <- true parameter:true;
 	int areaMap <- 110 parameter: true;
-	int endTime <- 500 parameter: true;
+	int endTime <- 50/*0*/ parameter: true;
 	
 	file envelopeMap_shapefile <- file("../includes/envelopeMap.shp");
 	file backMap_shapefile <- file("../includes/backMap.shp");
@@ -312,7 +312,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 						my_prod <- myself;
 						capacity <- myself.stockMax;
 						stock <- myself.stock;
-						type<-1;
+						type<-2;
 						
 						ask myself{
 							my_inter <- myself;
@@ -621,81 +621,93 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 		}
 		
 		loop temp over: (Intermediary where(not (each.my_consum=self))/* where (not(each.is_Consumer))*/){
-			if prestigious{
-				float computationType1 <- -(((self distance_to temp) + temp.price)-(distanceMinType1+distanceMaxPrestigeous))/distanceMaxPrestigeous; 
-				float computationType2 <- -(((self distance_to temp) + temp.price)-(distanceMinType2+distanceMaxPrestigeous))/distanceMaxPrestigeous;
-				if(computationType1 < 0.0){
-					computationType1 <- 0.0;
+			if(complexityEnvironment>0){
+				if prestigious{
+					float computationType1 <- -(((self distance_to temp) + temp.price)-(distanceMinType1+distanceMaxPrestigeous))/distanceMaxPrestigeous; 
+					float computationType2 <- -(((self distance_to temp) + temp.price)-(distanceMinType2+distanceMaxPrestigeous))/distanceMaxPrestigeous;
+					if(computationType1 < 0.0){
+						computationType1 <- 0.0;
+					}
+					if(computationType1 > 1.0){
+						computationType1 <- 1.0;
+					}
+					if(computationType2 < 0.0){
+						computationType2 <- 0.0;
+					}
+					if(computationType2 > 1.0){
+						computationType2 <- 1.0;
+					}
+					if(temp.type=1){
+						add temp::computationType1 to:percentageCollect;
+					} else if (temp.type=2){
+						add temp::computationType2 to:probabilitiesProd;
+					} else if (temp.type=0){
+						add temp::computationType1 to:percentageCollect;
+						add temp::computationType2 to:probabilitiesProd;
+					}
+				} else {
+					float computationType1 <- -(((self distance_to temp) + temp.price)-(distanceMinType1+distanceMaxNotPrestigeous))/distanceMaxNotPrestigeous;
+					float computationType2 <- -(((self distance_to temp) + temp.price)-(distanceMinType2+distanceMaxNotPrestigeous))/distanceMaxNotPrestigeous;
+					if(computationType1 < 0.0){
+						computationType1 <- 0.0;
+					}
+					if(computationType1 > 1.0){
+						computationType1 <- 1.0;
+					}
+					if(computationType2 < 0.0){
+						computationType2 <- 0.0;
+					}
+					if(computationType2 > 1.0){
+						computationType2 <- 1.0;
+					}
+					if(temp.type=1){
+						add temp::computationType1 to:percentageCollect;
+					} else if (temp.type=2){
+						add temp::computationType2 to:probabilitiesProd;
+					} else if (temp.type=0){
+						add temp::computationType1 to:percentageCollect;
+						add temp::computationType2 to:probabilitiesProd;
+					}
 				}
-				if(computationType1 > 1.0){
-					computationType1 <- 1.0;
-				}
-				if(computationType2 < 0.0){
-					computationType2 <- 0.0;
-				}
-				if(computationType2 > 1.0){
-					computationType2 <- 1.0;
-				}
-				if(temp.type=1){
-					add temp::computationType1 to:percentageCollect;
-				} else if (temp.type=2){
-					add temp::computationType2 to:probabilitiesProd;
-				} else if (temp.type=0){
-					add temp::computationType1 to:percentageCollect;
-					add temp::computationType2 to:probabilitiesProd;
+				if(not(temp.is_Producer)){
+					if(temp.is_Consumer){
+						float computationTemp;
+						if(temp.my_consum.prestigious){
+							computationTemp <- -(((self distance_to temp) + temp.price)-(distanceMinType2+distanceMaxPrestigeous))/distanceMaxPrestigeous;
+						} else {
+							computationTemp <- -(((self distance_to temp) + temp.price)-(distanceMinType2+distanceMaxNotPrestigeous))/distanceMaxNotPrestigeous;
+						}
+						if(computationTemp < 0.0){
+							computationTemp <- 0.0;
+						}
+						if(computationTemp > 1.0){
+							computationTemp <- 1.0;
+						}
+						add self.my_inter::computationTemp to:temp.my_consum.percentageCollect;
+						add self.my_inter::computationTemp to:temp.my_consum.probabilitiesProd;
+						
+					} else {
+						float computationTemp2 <- (distanceMaxIntermediary-((self distance_to temp) + temp.price))/distanceMaxIntermediary;
+						if(computationTemp2 < 0.0){
+							computationTemp2 <- 0.0;
+						}
+						if(computationTemp2 > 1.0){
+							computationTemp2 <- 1.0;
+						}
+						add  self.my_inter::computationTemp2 to:temp.percentageCollect;
+					}
+				
 				}
 			} else {
-				float computationType1 <- -(((self distance_to temp) + temp.price)-(distanceMinType1+distanceMaxNotPrestigeous))/distanceMaxNotPrestigeous;
-				float computationType2 <- -(((self distance_to temp) + temp.price)-(distanceMinType2+distanceMaxNotPrestigeous))/distanceMaxNotPrestigeous;
-				if(computationType1 < 0.0){
-					computationType1 <- 0.0;
-				}
-				if(computationType1 > 1.0){
-					computationType1 <- 1.0;
-				}
-				if(computationType2 < 0.0){
-					computationType2 <- 0.0;
-				}
-				if(computationType2 > 1.0){
-					computationType2 <- 1.0;
-				}
+				write temp;
 				if(temp.type=1){
-					add temp::computationType1 to:percentageCollect;
-				} else if (temp.type=2){
-					add temp::computationType2 to:probabilitiesProd;
-				} else if (temp.type=0){
-					add temp::computationType1 to:percentageCollect;
-					add temp::computationType2 to:probabilitiesProd;
-				}
-			}
-			if(not(temp.is_Producer)){
-				if(temp.is_Consumer){
-					float computationTemp;
-					if(temp.my_consum.prestigious){
-						computationTemp <- -(((self distance_to temp) + temp.price)-(distanceMinType2+distanceMaxPrestigeous))/distanceMaxPrestigeous;
-					} else {
-						computationTemp <- -(((self distance_to temp) + temp.price)-(distanceMinType2+distanceMaxNotPrestigeous))/distanceMaxNotPrestigeous;
+						add temp::1.0 to:percentageCollect;
+					} else if (temp.type=2){
+						add temp::1.0 to:probabilitiesProd;
+					} else if (temp.type=0){
+						add temp::1.0 to:percentageCollect;
+						add temp::1.0 to:probabilitiesProd;
 					}
-					if(computationTemp < 0.0){
-						computationTemp <- 0.0;
-					}
-					if(computationTemp > 1.0){
-						computationTemp <- 1.0;
-					}
-					add self.my_inter::computationTemp to:temp.my_consum.percentageCollect;
-					add self.my_inter::computationTemp to:temp.my_consum.probabilitiesProd;
-					
-				} else {
-					float computationTemp2 <- (distanceMaxIntermediary-((self distance_to temp) + temp.price))/distanceMaxIntermediary;
-					if(computationTemp2 < 0.0){
-						computationTemp2 <- 0.0;
-					}
-					if(computationTemp2 > 1.0){
-						computationTemp2 <- 1.0;
-					}
-					add  self.my_inter::computationTemp2 to:temp.percentageCollect;
-				}
-			
 			}
 				
 		}
@@ -752,7 +764,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 			}
 		}
 		//buying Type 2
-		if(createNewProducers){
+		if(createNewProducers and complexityEnvironment>0){
 			do activateProducer;
 		}
 		do buyType2(complexityConsumer);
@@ -946,10 +958,10 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 	/*
 	 * Buys the maximum of type 2 wares to the closest reachable producer, and so on.
 	 */
-	action buyType2(int complexConsum){
+	action buyType2(int complexProd){
 		list<Intermediary> temp; 
-		if(complexConsum < 2){
-			temp <- Intermediary where (each.type=1 or each.type=2 or each.type=0);
+		if(complexProd < 3){
+			temp <- Intermediary where (each.type=2);
 		} else {
 			temp <- Intermediary where (/*not(each.is_Consumer) and */each.type=2 or each.type=0);
 		}
