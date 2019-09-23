@@ -18,7 +18,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	/*
 	 * Total numbers of each type of species 
 	 */
-	float nb_total_Consumer_prestigious <- 10.0;//200.0 parameter: true;
+	float nb_total_Consumer_prestigious <- 1000.0;//200.0 parameter: true;
 	float nb_prioritary_prestigeous<- 0.0;//100.0 parameter:true;
 	float nb_total_Consumer_not_prestigious <- 0.0;//100.0 parameter: true;
 	int nb_total_Intermediary_type1 <- 0 parameter: true;
@@ -31,7 +31,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	 */
 //	bool use_map <- true parameter:true;
 	int areaMap <- 110 parameter: true;
-	int endTime <- 50/*0*/ parameter: true;
+	int endTime <- 500 parameter: true;
 	
 	file envelopeMap_shapefile <- file("../includes/envelopeMap.shp");
 	file backMap_shapefile <- file("../includes/backMap.shp");
@@ -48,8 +48,8 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	float builtTimeAverage <- 0.0;
 	float medianProducer <- 0.0;
 	float averageProducer <- 0.0;
-	float firstQuartilProduce <- 0.0; //quantile (container, 0.25)
-	float thirdQuartilProduce <- 0.0; //quantile (container, 0.75)
+	float firstQuartilProduce<- 0.0; 
+	float thirdQuartilProduce <- 0.0; 
 	
 	/*
 	 * Parameters which may be used by the user
@@ -59,7 +59,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	int consumRateFixed <- 500 parameter:true;
 	float percentageType1Prestigeous <- 0.0 parameter: true min: 0.0 max: 1.0; //between 0 and 1
 	float percentageType1NotPrestigeous <- 0.0 parameter: true min: 0.0 max: 1.0; //between 0 and 1
-	float distanceMaxPrestigeous <- 50.0 parameter:true;
+	float distanceMaxPrestigeous <- 20.0 parameter:true;
 	float distanceMaxNotPrestigeous <- 10.0 parameter:true;
 	float distanceMaxIntermediary <- 1500.0 parameter:true;
 	int capacityInter <- 30 parameter: true;
@@ -74,7 +74,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	 */
 	bool useDistance <- false;// parameter: true;
 	bool collectProbabilist <- false;// parameter: true;
-	float proba_build_again <- 0.0 parameter: true min: 0.0 max: 1.0;
+	float proba_build_again <- 0.10 parameter: true min: 0.0 max: 1.0;
 	float proba_reuse <- 0.0 parameter: true min: 0.0 max: 1.0;
 	bool reuse_while_built <- true parameter: true;
 	bool reuse_while_building <-true parameter: true;
@@ -145,6 +145,26 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 			create Producer from: caumont_shapefile /*number: 1*/{
 				type<-1;
 	//			location <- any_location_in(first(BackMap));
+				create Intermediary number: 1{
+					location <-myself.location; //change to put it on a grid ?
+					is_Consumer <- false;
+					my_consum <- nil;
+					is_Producer <- true;
+					my_prod <- myself;
+					capacity <- myself.stockMax;
+					stock <- myself.stock;
+					type<-1;
+					
+					ask myself{
+						my_inter <- myself;
+					}
+				}
+			}
+			//Add type 2 querries with big ones
+			create Producer from: caumont_shapefile /*number: 1*/{
+				type<-2;
+	//			location <- any_location_in(first(BackMap));
+				personnalInitRessource <- int(#max_int);
 				create Intermediary number: 1{
 					location <-myself.location;
 					is_Consumer <- false;
@@ -448,18 +468,18 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	/* 
 	 * Reflex used for the display of PolygonWare (dynamic lines between consumers and producers)
 	 */
-	reflex displayReflex {
+	reflex displayReflex{
 		write "-------------------------";
 		loop tempProd over: Producer{
 			add tempProd.name to: lName;
 			add Consumer collect each.quantityPerProd[tempProd] to: lValue;
 			add tempProd.color to: lCol;
 		}
-		ask Consumer{
-//			loop tempProd over: Producer{
-				save quantityPerProd/*[tempProd]*/ to: "../results/OD"+cycle+".csv" type:"csv" rewrite: false;
-//			}
-		}
+//		ask Consumer{
+////			loop tempProd over: Producer{
+//				save quantityPerProd/*[tempProd]*/ to: "../results/OD"+cycle+".csv" type:"csv" rewrite: false;
+////			}
+//		}
 		//save lValue to: "../results/OD"+cycle+".csv" type:"csv" rewrite: false;
 		averageDistance <- 0.0;
 		if(not empty(Ware)){
@@ -534,22 +554,34 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 //				write "number Prod" + tempConso.numberProducer;
 			}
 			//Computation of median and quartiles of the number of producer per consumer
-			list<float> numberProdPerConsumer <- Consumer collect each.numberProducer;
+			list<float> numberProdPerConsumer <- sort_by(Consumer collect each.numberProducer, each);
 			medianProducer <- median(numberProdPerConsumer);
 			averageProducer <- mean(numberProdPerConsumer);
 			firstQuartilProduce <- quantile(numberProdPerConsumer,0.25);
+			float firstQuartManual <- numberProdPerConsumer[int(floor(0.25*length(numberProdPerConsumer)))];
 			thirdQuartilProduce <- quantile(numberProdPerConsumer,0.75); 
+			float thirdQuartManual <- numberProdPerConsumer[int(floor(0.75*length(numberProdPerConsumer)))];
 			write "Max time : " + builtTimeMax;
 			write "Average time : " + builtTimeAverage/length(Consumer);
 			write "Min time : " + builtTimeMin;
 			write "medianProd " + medianProducer;
 			write "averageProd " + averageProducer;
 			write "first quantile " + firstQuartilProduce;
+			write "manual first " + firstQuartManual;
 			write "third quantile " + thirdQuartilProduce;
+			write "third manual " + thirdQuartManual;
 			
 			do pause;
 		}
 	}
+	
+//	reflex openMole{
+//		list<float> numberProdPerConsumer <- sort_by(Consumer collect each.numberProducer, each);
+//			medianProducer <- median(numberProdPerConsumer);
+//			averageProducer <- mean(numberProdPerConsumer);
+////			firstQuartilProduce <- quantile(numberProdPerConsumer,0.25);
+////			thirdQuartilProduce <- quantile(numberProdPerConsumer,0.75);
+//	}
 	
 }
 
@@ -888,11 +920,11 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious))))
 	}
 	
 	/*
-	 * Activation of closed producers orcreation of new ones, for the type 2 because no producers are reachable.
+	 * Activation of closed producers or creation of new ones, for the type 2, because no producers are reachable.
 	 */
 	action activateProducer{
 		Intermediary tempProd <- (Intermediary where (each.is_Producer and (each.type=2))) closest_to self;
-		if(tempProd=nil or (tempProd distance_to self)>self.distanceMinType2){
+		if(tempProd=nil or (tempProd distance_to self)>self.distanceMinType2 or tempProd.my_prod.stockMax <=0){
 			write self.name + " create a producer";
 			do createProducerType2(self,self.distanceMinType2);
 		}
@@ -1179,7 +1211,7 @@ species Producer  schedules: shuffle(Producer){
 		}
 		if (complexityProducer = 1){
 			ressource <- int(#max_int);
-			stockMax <- stock_max_prod_fixe_type1;
+			stockMax <- stock_max_prod_fixe_type2;
 		}
 		if(complexityProducer > 1){
 			if(type=1){
@@ -1289,8 +1321,17 @@ grid parcels width: 1100 height: 1100 neighbors:4 schedules:[]{
 	int qualityStone;
 }
 
+experiment batch_spreading type: batch until: cycle>endTime{
+	
+}
+
 experiment Spreading type: gui {
 
+//	parameter "distance" var: distanceMaxPrestigeous;
+//	parameter "median Producer: " var: medianProducer ;
+//	parameter "average producer: " var: averageProducer ;
+//	parameter "first quartil: " var: firstQuartilProduce ;
+//	parameter "third quartil: " var: thirdQuartilProduce ;
 	
 	output {
 		display main_display background: #lightgray { 

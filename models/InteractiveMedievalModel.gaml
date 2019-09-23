@@ -18,9 +18,9 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	/*
 	 * Total numbers of each type of species 
 	 */
-	float nb_total_Consumer_prestigious <- 20.0;//200.0 parameter: true;
-	float nb_prioritary_prestigeous<- 0.0;//100.0 parameter:true;
-	float nb_total_Consumer_not_prestigious <- 0.0;//2000.0 parameter: true;
+	float nb_total_Consumer_prestigious <- 200.0 parameter: true;
+	float nb_prioritary_prestigeous<- 100.0 parameter:true;
+	float nb_total_Consumer_not_prestigious <- 2000.0 parameter: true;
 	int nb_total_Intermediary_type1 <- 0 parameter: true;
 	int nb_total_Intermediary_type2 <- 0 parameter: true;
 	int nb_total_prod_type1 <- 5 parameter: true;
@@ -459,11 +459,11 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 			add Consumer collect each.quantityPerProd[tempProd] to: lValue;
 			add tempProd.color to: lCol;
 		}
-		ask Consumer{
-//			loop tempProd over: Producer{
-				save quantityPerProd/*[tempProd]*/ to: "../results/OD"+cycle+".csv" type:"csv" rewrite: false;
-//			}
-		}
+//		ask Consumer{
+////			loop tempProd over: Producer{
+//				save quantityPerProd/*[tempProd]*/ to: "../results/OD"+cycle+".csv" type:"csv" rewrite: false;
+////			}
+//		}
 		//save lValue to: "../results/OD"+cycle+".csv" type:"csv" rewrite: false;
 		averageDistance <- 0.0;
 		if(not empty(Ware)){
@@ -579,8 +579,8 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 	 */
 	action initialisation{
 		
-		if(complexityConsumer > 1 and createNewProducers){
-			if(prestigious){
+		if(createNewProducers){
+			if(complexityConsumer > 1 and prestigious){
 				distanceMinType2 <- distanceMaxPrestigeous;
 			} else {
 				distanceMinType2 <- distanceMaxNotPrestigeous;
@@ -699,7 +699,6 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 				
 				}
 			} else {
-				write temp;
 				if(temp.type=1){
 						add temp::1.0 to:percentageCollect;
 					} else if (temp.type=2){
@@ -752,7 +751,6 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 	
 
 	reflex buy when: not is_built{
-		//Gérer l'achat en fonction de la complexité du consomateur et du producteur. Si 1 Type, achat de type 2
 		if(complexityConsumer>1){
 			//Buying type 1
 			if(complexityProducer>1){
@@ -770,9 +768,6 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 		do buyType2(complexityConsumer);
 		
 	}
-//	reflex buyingType1 when: not is_built{
-//		do buyType1;
-//	}
 	
 	/*
 	 * Buys the Type 1 of wares. Collects the maximum possible to the closest producer of this types and so on until all needs are collected or no more producers are available.
@@ -899,7 +894,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 	 */
 	action activateProducer{
 		Intermediary tempProd <- (Intermediary where (each.is_Producer and (each.type=2))) closest_to self;
-		if(tempProd=nil or (tempProd distance_to self)>self.distanceMinType2){
+		if(tempProd=nil or (tempProd distance_to self)>self.distanceMinType2 or tempProd.my_prod.stockMax <=0){
 			write self.name + " create a producer";
 			do createProducerType2(self,self.distanceMinType2);
 		}
