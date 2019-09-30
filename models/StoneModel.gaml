@@ -634,8 +634,10 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious))))
 		}
 		if(nb_total_prod_type1 >0){
 			Intermediary tempType1 <- closest_to(Intermediary where ((each.type=1) and not each.is_Consumer),self);
-			distanceMinType1 <- self distance_to tempType1;
-			distanceMinType1 <- distanceMinType1 + tempType1.price;
+			if(tempType1!=nil){
+				distanceMinType1 <- self distance_to tempType1;
+				distanceMinType1 <- distanceMinType1 + tempType1.price;
+			}
 		}
 		if(length(Intermediary where ((each.type=2) and not each.is_Consumer)) >0){
 			Intermediary tempType2 <- closest_to(Intermediary where ((each.type=2) and not each.is_Consumer),self);

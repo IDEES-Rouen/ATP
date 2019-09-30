@@ -88,7 +88,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	
 	
 	int complexityEnvironment <-0;//0 = no complexity; 1 = use distance; 2 = ground properties; 3 = policies; 4 = real case; 5 = open world;
-	int complexityConsumer <- 0;//0 = no rebuilt; 1 = rebuilt; 2 = 2 ypes of needs + priority and prestige; 3 = real localisation;
+	int complexityConsumer <- 0;//0 = no rebuilt; 1 = rebuilt; 2 = 2 types of needs + priority and prestige; 3 = real localisation;
 	int complexityProducer <- 0;//0 = production infinite; 1 = production not infinite; 2 = 2 types of prod; 3 = reuse;
 	/*
 	 * Initialisation of the simulation
@@ -589,8 +589,10 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 //		if(consumer_strategy=1){
 		if(nb_total_prod_type1 >0){
 			Intermediary tempType1 <- closest_to(Intermediary where ((each.type=1) and not each.is_Consumer),self);
-			distanceMinType1 <- self distance_to tempType1;
-			distanceMinType1 <- distanceMinType1 + tempType1.price;
+			if(tempType1!=nil){
+				distanceMinType1 <- self distance_to tempType1;
+				distanceMinType1 <- distanceMinType1 + tempType1.price;
+			}
 		}
 		if(length(Intermediary where ((each.type=2) and not each.is_Consumer)) >0){
 			Intermediary tempType2 <- closest_to(Intermediary where ((each.type=2) and not each.is_Consumer),self);
@@ -1080,6 +1082,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 	
 	aspect base {
 		draw square(1) color: prestigious ? #darkblue : #blue;
+//		draw circle(distanceMinType2) color: #black empty: true border: #black;
 	}
 }
 
