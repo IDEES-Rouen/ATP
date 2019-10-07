@@ -173,7 +173,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 					my_prod <- myself;
 					capacity <- myself.stockMax;
 					stock <- myself.stock;
-					type<-1;
+					type<-2;
 					
 					ask myself{
 						my_inter <- myself;
@@ -633,7 +633,16 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious))))
 			}
 		}
 		if(nb_total_prod_type1 >0){
-			Intermediary tempType1 <- closest_to(Intermediary where ((each.type=1) and not each.is_Consumer),self);
+			Intermediary tempType1 <- first((Intermediary where (each.type=1)));// <- closest_to(Producer where ((each.type=1)/* and not each.is_Consumer*/),self).my_inter;
+			float distanceToInter <- self distance_to first((Intermediary where (each.type=1)));
+			//manual closest_to: 
+			loop tempInter over: (Intermediary where (each.type=1)){
+				float distanceTest <- self distance_to tempInter;
+				if(distanceTest < distanceToInter){
+					distanceToInter <- distanceTest;
+					tempType1 <- tempInter;
+				}
+			}
 			if(tempType1!=nil){
 				distanceMinType1 <- self distance_to tempType1;
 				distanceMinType1 <- distanceMinType1 + tempType1.price;
