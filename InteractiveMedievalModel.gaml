@@ -97,7 +97,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 		//Initialisation of complexity, done by the user at the start of the simulation
 //		map valeur;
 //		valeur <- user_input("Complexity of the simulation",["Environment"::complexityEnvironment,"Consumer"::complexityConsumer,"Producer"::complexityProducer]);
-//		complexityEnvironment <-int(valeur["Environment"]);
+//		complexityEnvironment <- int(valeur["Environment"]);
 //		complexityConsumer <- int(valeur["Consumer"]);
 //		complexityProducer <- int(valeur["Producer"]);
 		
@@ -138,6 +138,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 		if(complexityEnvironment>3){
 			create Producer from: caumont_shapefile /*number: 1*/{
 				type<-1;
+				my_icon <- image_file("../images/Grande_carriere_v2.png");
 	//			location <- any_location_in(first(BackMap));
 				create Intermediary number: 1{
 					location <-myself.location;
@@ -159,6 +160,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 				type<-2;
 	//			location <- any_location_in(first(BackMap));
 				personnalInitRessource <- int(#max_int);
+				my_icon <- image_file("../images/Grande_carriere_v2.png");
 				create Intermediary number: 1{
 					location <-myself.location;
 					is_Consumer <- false;
@@ -178,6 +180,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 			do createProd(nb_total_prod_type1,1,complexityEnvironment);
 		}
 		//creation of initial producers, consumers and merchants
+		//If complexityConsumer>2, use shapefiles to create zones where they will be a consumer at a time, not using numbers)
 		
 		if(ratioPrioPresti<1.0){
 			proba_new_Prestigious_Priority <- ratioPrioPresti;
@@ -572,6 +575,8 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 	
 	float distanceMinType1 <- 0.0;
 	float distanceMinType2 <- 0.0;
+	
+	image_file my_icon;
 	
 	/*
 	 * Initialisation of Consumers: it creates a map with producers, consumers and merchants associated with their distance 
@@ -1093,6 +1098,23 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 		draw square(10) color: prestigious ? #darkblue : #blue;
 //		draw circle(distanceMinType2) color: #black empty: true border: #black;
 	}
+	aspect icon {
+		if(prestigious){
+			if(priority){
+				my_icon <- image_file("../images/Chateau.png");
+			} else {
+				my_icon <- image_file("../images/Cathedrale.png");
+			}
+		} else {
+			if (need>500){
+				my_icon <- image_file("../images/Abbaye.png");
+			} else {
+				my_icon <- image_file("../images/Eglise.png");
+			}
+		}
+		draw my_icon size:20;
+	}
+	
 }
 
 //This species represent the commercial parts of consumers and proucers, as well as merchants
@@ -1180,6 +1202,8 @@ species Producer  schedules: shuffle(Producer){
 	
 	bool activated <- true;//used to display and schedulle only activated producer, but keeping trace of older production sites.
 	
+	image_file my_icon;
+	
 	init {
 		if(complexityProducer = 0){
 			ressource <- int(#max_int);
@@ -1232,6 +1256,13 @@ species Producer  schedules: shuffle(Producer){
 		if(activated){
 			draw triangle(10) color:type=1 ? #darkred : #red;
 		}
+	}
+	
+	aspect icon {
+		if(my_icon=nil){
+			my_icon <- image_file("../images/Tas_de_pierres_mieux.png");
+		}
+		draw my_icon size:20;
 	}
 }
 
@@ -1303,9 +1334,9 @@ experiment Spreading type: gui {
 		display main_display background: #lightgray {
 			species BackMap aspect:base;
 //			grid parcels lines: #black transparency: 0.5;
-			species Consumer aspect:base;
+			species Consumer aspect: icon;//aspect:base;
 			species Intermediary aspect:base;
-			species Producer aspect:base;
+			species Producer aspect: icon;//aspect:base;
 //			species Ware;
 			species PolygonWare;// transparency: 0.5;
 		}
