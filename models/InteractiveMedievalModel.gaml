@@ -18,9 +18,9 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	/*
 	 * Total numbers of each type of species 
 	 */
-	float nb_total_Consumer_prestigious <- 200.0 parameter: true;
-	float nb_prioritary_prestigeous<- 100.0 parameter:true;
-	float nb_total_Consumer_not_prestigious <- 2000.0 parameter: true;
+	float nb_total_Consumer_prestigious <- 200.0 parameter: true min:0.0 max:1000.0;
+	float nb_prioritary_prestigeous<- 100.0 parameter:true min:0.0 max:1000.0;
+	float nb_total_Consumer_not_prestigious <- 2000.0 parameter: true min:0.0 max:10000.0;
 	int nb_total_Intermediary_type1 <- 0 parameter: true;
 	int nb_total_Intermediary_type2 <- 0 parameter: true;
 	int nb_total_prod_type1 <- 5 parameter: true;
@@ -30,7 +30,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	 */
 //	bool use_map <- true parameter:true;
 	int areaMap <- 110 parameter: true;
-	int endTime <- 50/*0*/ parameter: true;
+	int endTime <- 500 parameter: true;
 	
 	file envelopeMap_shapefile <- file("../includes/envelopeMap.shp");
 	file backMap_shapefile <- file("../includes/backMap.shp");
@@ -49,22 +49,22 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	 * Parameters which may be used by the user
 	 */
 	bool createNewProducers <- true parameter: true;
-	int consumRate <- 50 parameter:true;
-	int consumRateFixed <- 500 parameter:true;
+	int consumRate <- 50 parameter:true min: 0 max: 100;
+	int consumRateFixed <- 500 parameter:true min: 100 max: 5000;
 	float percentageType1Prestigeous <- 0.0 parameter: true min: 0.0 max: 1.0; //between 0 and 1
 	float percentageType1NotPrestigeous <- 0.0 parameter: true min: 0.0 max: 1.0; //between 0 and 1
-	float distanceMaxPrestigeous <- 50.0 parameter:true;
-	float distanceMaxNotPrestigeous <- 10.0 parameter:true;
+	float distanceMaxPrestigeous <- 50.0 parameter:true min: 10.0 max: 1000.0;
+	float distanceMaxNotPrestigeous <- 10.0 parameter:true min: 10.0 max: 1000.0;
 	float distanceMaxIntermediary <- 1500.0 parameter:true;
 	int capacityInter <- 30 parameter: true;
 	int stock_max_prod <- 10 parameter: true;
-	int stock_max_prod_fixe_type1 <- 100 parameter: true;
-	int stock_max_prod_fixe_type2 <- 100 parameter: true;
+	int stock_max_prod_fixe_type1 <- 100 parameter: true min: 10 max: 1000;
+	int stock_max_prod_fixe_type2 <- 100 parameter: true min: 10 max: 5000;
 	int initRessource <- 1000 parameter: true;
 	float init_price <- 100.0 parameter: true;
 	
-	bool useDistance <- true parameter: true;
-	bool collectProbabilist <- false parameter: true;
+	bool useDistance <- true;
+	bool collectProbabilist <- false;
 	float proba_build_again <- 0.0 parameter: true min: 0.0 max: 1.0;
 	float proba_reuse <- 0.0 parameter: true min: 0.0 max: 1.0;
 	bool reuse_while_built <- true parameter: true;
@@ -80,14 +80,9 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	
 	float ratioPrioPresti <- nb_total_Consumer_prestigious/endTime;
 	float ratioPrioNotPresti <- nb_prioritary_prestigeous/endTime;
-	float ratioNotPrio <- nb_total_Consumer_not_prestigious/endTime;
+	float ratioNotPrio <- nb_total_Consumer_not_prestigious/endTime;	
 	
-//	int consumer_strategy <- 1 parameter: true min: 1 max: 2; //1:buy to producers and intermediaries. 2:only buy to inermediairies.
-//	int intermediary_strategy <- 3 parameter: true min:1 max: 3; //1: buy the stock. 2: buy stock and place orders. 3: only place orders.
-//	int producer_strategy <- 1 parameter: true min: 1 max: 2; //1: produce just what has been oredered. 2: produce the maximum it can
-	
-	
-	int complexityEnvironment <-0;//0 = no complexity; 1 = use distance; 2 = ground properties; 3 = policies; 4 = real case; 5 = open world;
+	int complexityEnvironment <- 0;//0 = no complexity; 1 = use distance; 2 = ground properties; 3 = policies; 4 = real case; 5 = open world;
 	int complexityConsumer <- 0;//0 = no rebuilt; 1 = rebuilt; 2 = 2 types of needs + priority and prestige; 3 = real localisation;
 	int complexityProducer <- 0;//0 = production infinite; 1 = production not infinite; 2 = 2 types of prod; 3 = reuse;
 	/*
@@ -97,7 +92,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 		//Initialisation of complexity, done by the user at the start of the simulation
 		map valeur;
 		valeur <- user_input("Complexity of the simulation",["Environment"::complexityEnvironment,"Consumer"::complexityConsumer,"Producer"::complexityProducer]);
-		complexityEnvironment <-int(valeur["Environment"]);
+		complexityEnvironment <- int(valeur["Environment"]);
 		complexityConsumer <- int(valeur["Consumer"]);
 		complexityProducer <- int(valeur["Producer"]);
 		
@@ -138,6 +133,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 		if(complexityEnvironment>3){
 			create Producer from: caumont_shapefile /*number: 1*/{
 				type<-1;
+				my_icon <- image_file("../images/Grande_carriere_v2.png");
 	//			location <- any_location_in(first(BackMap));
 				create Intermediary number: 1{
 					location <-myself.location;
@@ -159,6 +155,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 				type<-2;
 	//			location <- any_location_in(first(BackMap));
 				personnalInitRessource <- int(#max_int);
+				my_icon <- image_file("../images/Grande_carriere_v2.png");
 				create Intermediary number: 1{
 					location <-myself.location;
 					is_Consumer <- false;
@@ -167,7 +164,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 					my_prod <- myself;
 					capacity <- myself.stockMax;
 					stock <- myself.stock;
-					type<-1;
+					type<-2;
 					
 					ask myself{
 						my_inter <- myself;
@@ -178,6 +175,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 			do createProd(nb_total_prod_type1,1,complexityEnvironment);
 		}
 		//creation of initial producers, consumers and merchants
+		//If complexityConsumer>2, use shapefiles to create zones where they will be a consumer at a time, not using numbers)
 		
 		if(ratioPrioPresti<1.0){
 			proba_new_Prestigious_Priority <- ratioPrioPresti;
@@ -416,7 +414,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 			}
 		}
 		
-		//creating new consumers (initialize them and add them o others intermediary buyers as potential re-usability)
+		//creating new consumers (initialize them and add them or others intermediary buyers as potential re-usability)
 		if(ratioPrioPresti<1.0){
 			if(flip(proba_new_Prestigious_Priority)){
 				do createConsum(1,true,true,complexityEnvironment);
@@ -573,6 +571,8 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 	float distanceMinType1 <- 0.0;
 	float distanceMinType2 <- 0.0;
 	
+	image_file my_icon;
+	
 	/*
 	 * Initialisation of Consumers: it creates a map with producers, consumers and merchants associated with their distance 
 	 * so it is not necessary to compute these values at each step
@@ -588,7 +588,16 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 		}
 //		if(consumer_strategy=1){
 		if(nb_total_prod_type1 >0){
-			Intermediary tempType1 <- closest_to(Intermediary where ((each.type=1) and not each.is_Consumer),self);
+			Intermediary tempType1 <- first((Intermediary where (each.type=1)));// <- closest_to(Producer where ((each.type=1)/* and not each.is_Consumer*/),self).my_inter;
+			float distanceToInter <- self distance_to first((Intermediary where (each.type=1)));
+			//manual closest_to: 
+			loop tempInter over: (Intermediary where (each.type=1)){
+				float distanceTest <- self distance_to tempInter;
+				if(distanceTest < distanceToInter){
+					distanceToInter <- distanceTest;
+					tempType1 <- tempInter;
+				}
+			}
 			if(tempType1!=nil){
 				distanceMinType1 <- self distance_to tempType1;
 				distanceMinType1 <- distanceMinType1 + tempType1.price;
@@ -601,21 +610,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 				distanceMinType2 <- distanceMinType2 + tempType2.price;
 			}
 		}
-//		}
-//		if(consumer_strategy=2){
-//			if(nb_init_prod_type1 >0){
-//				Intermediary tempType1 <- closest_to(Intermediary where ((each.type=1) and (not(each.is_Consumer) and not(each.is_Producer))),self);
-//				distanceMinType1 <- self distance_to tempType1;
-//				distanceMinType1 <- distanceMinType1 + tempType1.price;
-//			}
-//			if(nb_init_prod_type2 >0){
-//				Intermediary tempType2 <- closest_to(Intermediary where ((each.type=2) and (not(each.is_Consumer) and not(each.is_Producer))),self);
-//				if(!createNewProducers){
-//					distanceMinType2 <- self distance_to tempType2;
-//					distanceMinType2 <- distanceMinType2 + tempType2.price;
-//				}
-//			}
-//		}
+
 		
 		loop temp over: Producer{
 			add temp::false to:presenceProd;
@@ -624,7 +619,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 		
 		loop temp over: (Intermediary where(not (each.my_consum=self))/* where (not(each.is_Consumer))*/){
 			if(complexityEnvironment>0){
-				if prestigious{
+				if self.prestigious{
 					float computationType1 <- -(((self distance_to temp) + temp.price)-(distanceMinType1+distanceMaxPrestigeous))/distanceMaxPrestigeous; 
 					float computationType2 <- -(((self distance_to temp) + temp.price)-(distanceMinType2+distanceMaxPrestigeous))/distanceMaxPrestigeous;
 					if(computationType1 < 0.0){
@@ -671,7 +666,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 						add temp::computationType2 to:probabilitiesProd;
 					}
 				}
-				if(not(temp.is_Producer)){
+				if(not(temp.is_Producer) and complexityProducer>2){
 					if(temp.is_Consumer){
 						float computationTemp;
 						if(temp.my_consum.prestigious){
@@ -1081,9 +1076,26 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious) and not(ea
 	}
 	
 	aspect base {
-		draw square(1) color: prestigious ? #darkblue : #blue;
+		draw square(10) color: prestigious ? #darkblue : #blue;
 //		draw circle(distanceMinType2) color: #black empty: true border: #black;
 	}
+	aspect icon {
+		if(prestigious){
+			if(priority){
+				my_icon <- image_file("../images/Chateau.png");
+			} else {
+				my_icon <- image_file("../images/Cathedrale.png");
+			}
+		} else {
+			if (need>500){
+				my_icon <- image_file("../images/Abbaye.png");
+			} else {
+				my_icon <- image_file("../images/Eglise.png");
+			}
+		}
+		draw my_icon size:20;
+	}
+	
 }
 
 //This species represent the commercial parts of consumers and proucers, as well as merchants
@@ -1171,6 +1183,8 @@ species Producer  schedules: shuffle(Producer){
 	
 	bool activated <- true;//used to display and schedulle only activated producer, but keeping trace of older production sites.
 	
+	image_file my_icon;
+	
 	init {
 		if(complexityProducer = 0){
 			ressource <- int(#max_int);
@@ -1221,8 +1235,15 @@ species Producer  schedules: shuffle(Producer){
 	
 	aspect base {
 		if(activated){
-			draw triangle(1) color:type=1 ? #darkred : #red;
+			draw triangle(10) color:type=1 ? #darkred : #red;
 		}
+	}
+	
+	aspect icon {
+		if(my_icon=nil){
+			my_icon <- image_file("../images/Tas_de_pierres_mieux.png");
+		}
+		draw my_icon size:20;
 	}
 }
 
@@ -1294,9 +1315,9 @@ experiment Spreading type: gui {
 		display main_display background: #lightgray {
 			species BackMap aspect:base;
 //			grid parcels lines: #black transparency: 0.5;
-			species Consumer aspect:base;
+			species Consumer aspect: icon;//aspect:base;
 			species Intermediary aspect:base;
-			species Producer aspect:base;
+			species Producer aspect: icon;//aspect:base;
 //			species Ware;
 			species PolygonWare;// transparency: 0.5;
 		}
@@ -1326,11 +1347,6 @@ experiment Spreading type: gui {
 			style:stack
 			{
 				datalist legend: lName value: lValue color: lCol;
-//				loop tempProd over:Producer{
-//					data tempProd.name style: stack
-//					value:(Consumer collect each.quantityPerProd[tempProd])
-//					color: tempProd.color;
-//				}
 			}
 		} 
 	
@@ -1338,17 +1354,8 @@ experiment Spreading type: gui {
 			chart "production information" type:series size: {1,1} position: {0, 0}
 			{
 				datalist legend: Producer accumulate each.name value: Producer accumulate each.productionBefore color: Producer accumulate each.color;
-//				loop tempProd over: Producer {
-//					data tempProd.name value: tempProd.productionBefore color:tempProd.color;
-//				}
+
 			}
-//			chart "stock information" type:series size: {0.5,1} position: {0.5, 0}
-//			{
-//				datalist legend: Producer accumulate each.name value: Producer accumulate each.stock color: Producer accumulate each.color;
-////				loop tempProd over: Producer {
-////					data tempProd.name value: tempProd.stock color:tempProd.color;
-////				}
-//			}
 		} 
 	
 	}

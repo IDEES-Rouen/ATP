@@ -18,9 +18,9 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	/*
 	 * Total numbers of each type of species 
 	 */
-	float nb_total_Consumer_prestigious <- 1000.0;//200.0 parameter: true;
-	float nb_prioritary_prestigeous<- 0.0;//100.0 parameter:true;
-	float nb_total_Consumer_not_prestigious <- 0.0;//100.0 parameter: true;
+	float nb_total_Consumer_prestigious <- 200.0 parameter: true;
+	float nb_prioritary_prestigeous<- 100.0 parameter:true;
+	float nb_total_Consumer_not_prestigious <- 100.0 parameter: true;
 	int nb_total_Intermediary_type1 <- 0 parameter: true;
 	int nb_total_Intermediary_type2 <- 0 parameter: true;
 	int nb_total_prod_type1 <- 5 parameter: true;
@@ -36,7 +36,6 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	file envelopeMap_shapefile <- file("../includes/envelopeMap.shp");
 	file backMap_shapefile <- file("../includes/backMap.shp");
 	file caumont_shapefile <- file("../includes/caumont.shp");
-//	file vernon_shapefile <- file("../includes/vernon.shp");
 	geometry shape <- square(areaMap);//<- envelope(envelopeMap_shapefile);//rectangle(1763,2370);//square(2000);
 	
 	/*
@@ -48,8 +47,10 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	float builtTimeAverage <- 0.0;
 	float medianProducer <- 0.0;
 	float averageProducer <- 0.0;
-	float firstQuartilProduce<- 0.0; 
+	float firstQuartilProduce <- 0.0; 
+	float firstQuartManual <- 0.0;
 	float thirdQuartilProduce <- 0.0; 
+	float thirdQuartManual <- 0.0;
 	
 	/*
 	 * Parameters which may be used by the user
@@ -90,10 +91,6 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	float ratioPrioPresti <- nb_total_Consumer_prestigious/endTime;
 	float ratioPrioNotPresti <- nb_prioritary_prestigeous/endTime;
 	float ratioNotPrio <- nb_total_Consumer_not_prestigious/endTime;
-	
-//	int consumer_strategy <- 1 parameter: true min: 1 max: 2; //1:buy to producers and intermediaries. 2:only buy to inermediairies.
-//	int intermediary_strategy <- 3 parameter: true min:1 max: 3; //1: buy the stock. 2: buy stock and place orders. 3: only place orders.
-//	int producer_strategy <- 1 parameter: true min: 1 max: 2; //1: produce just what has been oredered. 2: produce the maximum it can
 	
 	int complexityEnvironment <- 0 parameter: true min: 0 max: 5; //0 = no complexity; 1 = use distance; 2 = ground properties; 3 = policies; 4 = real case; 5 = open world;
 	int complexityConsumer <- 0 parameter: true min: 0 max: 3; //0 = no rebuilt; 1 = rebuilt; 2 = 2 ypes of needs + priority and prestige; 3 = real localisation;
@@ -231,29 +228,6 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	/*
 	 * Definition of user command to add/removes entities 
 	 */
-//	user_command "create consum"{
-//		do createConsum(1,true,true);
-//	}
-//	
-//	user_command "destroy consum"{
-//		do destroyConsum;
-//	}
-//	
-//	user_command "create prod"{
-//		do createProd(1,1);
-//	}
-//	
-//	user_command "destroy prod"{
-//		do destroyProd;
-//	}
-//	
-//	user_command "create inter"{
-//		do createInter(1,1);
-//	}
-//	
-//	user_command "destroy inter"{
-//		do destroyInter;
-//	}
 	
 	/*
 	 * Definition of acion for the creation of entities  
@@ -433,6 +407,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 		}
 		
 		//creating new consumers (initialize them and add them o others intermediary buyers as potential re-usability)
+		//If complexityConsumer>2, use shapefiles to create zones where they will be a consumer at a time, not using numbers)
 		if(ratioPrioPresti<1.0){
 			if(flip(proba_new_Prestigious_Priority)){
 				do createConsum(1,true,true,complexityEnvironment);
@@ -557,18 +532,18 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 			list<float> numberProdPerConsumer <- sort_by(Consumer collect each.numberProducer, each);
 			medianProducer <- median(numberProdPerConsumer);
 			averageProducer <- mean(numberProdPerConsumer);
-			firstQuartilProduce <- quantile(numberProdPerConsumer,0.25);
-			float firstQuartManual <- numberProdPerConsumer[int(floor(0.25*length(numberProdPerConsumer)))];
-			thirdQuartilProduce <- quantile(numberProdPerConsumer,0.75); 
-			float thirdQuartManual <- numberProdPerConsumer[int(floor(0.75*length(numberProdPerConsumer)))];
+//			firstQuartilProduce <- quantile(numberProdPerConsumer,0.25);
+			firstQuartManual <- numberProdPerConsumer[int(floor(0.25*length(numberProdPerConsumer)))];
+//			thirdQuartilProduce <- quantile(numberProdPerConsumer,0.75); 
+			thirdQuartManual <- numberProdPerConsumer[int(floor(0.75*length(numberProdPerConsumer)))];
 			write "Max time : " + builtTimeMax;
 			write "Average time : " + builtTimeAverage/length(Consumer);
 			write "Min time : " + builtTimeMin;
 			write "medianProd " + medianProducer;
 			write "averageProd " + averageProducer;
-			write "first quantile " + firstQuartilProduce;
+//			write "first quantile " + firstQuartilProduce;
 			write "manual first " + firstQuartManual;
-			write "third quantile " + thirdQuartilProduce;
+//			write "third quantile " + thirdQuartilProduce;
 			write "third manual " + thirdQuartManual;
 			
 			do pause;
@@ -579,8 +554,8 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 //		list<float> numberProdPerConsumer <- sort_by(Consumer collect each.numberProducer, each);
 //			medianProducer <- median(numberProdPerConsumer);
 //			averageProducer <- mean(numberProdPerConsumer);
-////			firstQuartilProduce <- quantile(numberProdPerConsumer,0.25);
-////			thirdQuartilProduce <- quantile(numberProdPerConsumer,0.75);
+//			firstQuartManual <- numberProdPerConsumer[int(floor(0.25*length(numberProdPerConsumer)))];
+//			thirdQuartManual <- numberProdPerConsumer[int(floor(0.75*length(numberProdPerConsumer)))];
 //	}
 	
 }
@@ -661,7 +636,7 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious))))
 			add temp::0.0 to: quantityPerProd;
 		}
 		
-		loop temp over: (Intermediary where(not (each.my_consum=self))/* where (not(each.is_Consumer))*/){
+		loop temp over: (Intermediary where(not (each.my_consum=self))){
 			if(complexityEnvironment > 0) {
 				if prestigious{
 					float computationType1 <- -(((self distance_to temp) + temp.price)-(distanceMinType1+distanceMaxPrestigeous))/distanceMaxPrestigeous; 
@@ -1074,7 +1049,6 @@ shuffle(Consumer where (not(each.is_built) and (not(each.prestigious))))
 						}	
 					} else if(tempInt.is_Consumer){				
 						if(not(tempInt.my_consum=self) and tempInt.my_consum.is_reused and flip(self.probabilitiesProd[tempInt])){
-	//					write tempInt.name;
 						collectTemp <- min(needType2-collect,tempInt.my_consum.quantity_reused_type2);
 						collect <- collect+collectTemp;
 						if(collectTemp>0){
@@ -1141,7 +1115,7 @@ species Intermediary  schedules: shuffle(Intermediary){
 	map<Intermediary,float> percentageCollect;
 	
 	action initialisation{
-		float distanceMinProd <- 0.0;//self distance_to (closest_to(Producer where (each.type=self.type),self));
+		float distanceMinProd <- 0.0;
 		loop temp over: Intermediary where ((each.is_Producer)){
 			float computationPercentage <- -(((self distance_to temp) + temp.price)-(distanceMinProd+distanceMaxIntermediary))/distanceMaxIntermediary;
 			if(computationPercentage < 0.0){
@@ -1159,7 +1133,7 @@ species Intermediary  schedules: shuffle(Intermediary){
 		do buy3;
 	}
 	
-	action buy3 { //buy as a consumer
+	action buy3 {
 		int collect <- 0;
 		list<Intermediary> temp <- Intermediary where (each.is_Producer and each.type=self.type and each.my_prod.activated);
 		temp <- temp sort_by(each distance_to self);
@@ -1341,8 +1315,8 @@ experiment Spreading type: gui {
 //	parameter "distance" var: distanceMaxPrestigeous;
 //	parameter "median Producer: " var: medianProducer ;
 //	parameter "average producer: " var: averageProducer ;
-//	parameter "first quartil: " var: firstQuartilProduce ;
-//	parameter "third quartil: " var: thirdQuartilProduce ;
+//	parameter "first quartil: " var: firstQuartManual ;
+//	parameter "third quartil: " var: thirdQuartManual ;
 	
 	output {
 		display main_display background: #lightgray { 
@@ -1379,11 +1353,6 @@ experiment Spreading type: gui {
 			style:stack
 			{
 				datalist legend: lName value: lValue color: lCol;
-//				loop tempProd over:Producer{
-//					data tempProd.name style: stack
-//					value:(Consumer collect each.quantityPerProd[tempProd])
-//					color: tempProd.color;
-//				}
 			}
 		} 
 	
@@ -1391,17 +1360,7 @@ experiment Spreading type: gui {
 			chart "production information" type:series size: {1,1} position: {0, 0}
 			{
 				datalist legend: Producer accumulate each.name value: Producer accumulate each.productionBefore color: Producer accumulate each.color;
-//				loop tempProd over: Producer {
-//					data tempProd.name value: tempProd.productionBefore color:tempProd.color;
-//				}
 			}
-//			chart "stock information" type:series size: {0.5,1} position: {0.5, 0}
-//			{
-//				datalist legend: Producer accumulate each.name value: Producer accumulate each.stock color: Producer accumulate each.color;
-////				loop tempProd over: Producer {
-////					data tempProd.name value: tempProd.stock color:tempProd.color;
-////				}
-//			}
 		} 
 	
 	}
