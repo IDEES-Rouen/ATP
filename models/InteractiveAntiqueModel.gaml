@@ -18,8 +18,8 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	/*
 	 * Total numbers of each type of species 
 	 */
-	int nb_total_Big_Consumer <- 200 parameter: true min:0 max:1000;
-	int nb_total_Small_Consumer <- 2000 parameter: true min:0 max:10000;
+	int nb_total_Big_Consumer <- 2 parameter: true min:0 max:1000;
+	int nb_total_Small_Consumer <- 20 parameter: true min:0 max:10000;
 	int nb_total_Intermediary_type1 <- 0 parameter: true;
 	int nb_total_Intermediary_type2 <- 0 parameter: true;
 	int nb_total_big_prod <- 5 parameter: true;
@@ -50,8 +50,6 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	bool createNewProducers <- true parameter: true;
 	int consumRate <- 50 parameter:true min: 0 max: 100;
 	int consumRateFixed <- 500 parameter:true min: 100 max: 5000;
-//	float percentageType1Prestigeous <- 0.0 parameter: true min: 0.0 max: 1.0; //between 0 and 1
-//	float percentageType1NotPrestigeous <- 0.0 parameter: true min: 0.0 max: 1.0; //between 0 and 1
 	float distanceMaxBigCity <- 50.0 parameter:true min: 10.0 max: 1000.0;
 	float distanceMaxNotBigCity <- 10.0 parameter:true min: 10.0 max: 1000.0;
 	float distanceMaxIntermediary <- 1500.0 parameter:true;
@@ -65,21 +63,6 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	bool useDistance <- true;
 	bool collectProbabilist <- false;
 	bool consumer_stock <- false;
-//	float proba_build_again <- 0.0 parameter: true min: 0.0 max: 1.0;
-//	float proba_stock <- 0.0 parameter: true min: 0.0 max: 1.0;
-//	bool reuse_while_built <- true parameter: true;
-//	bool reuse_while_building <-true parameter: true;
-	
-//	int newConsumerPrestigiousPrioritary <- 0; //number of new consumerprestigious and prioritary
-//	int newConsumerPrestigiousNotPrioritary <- 0; //number of new consumer prestigious and not prioritary
-//	int newConsumerNotPrestigious <- 0; //number of new consumer not prestigious
-//	float proba_new_Prestigious_Priority <- 0.0;
-//	float proba_new_Prestigious_Not_Priority <- 0.0;
-//	float proba_new_Not_Prestigious <- 0.0;
-	
-//	float ratioPrioPresti <- nb_total_Consumer_prestigious/endTime;
-//	float ratioPrioNotPresti <- nb_prioritary_prestigeous/endTime;
-//	float ratioNotPrio <- nb_total_Consumer_not_prestigious/endTime;
 	
 	int complexityEnvironment <- 0;//0 = no complexity; 1 = use distance; 2 = ground properties; 3 = policies; 4 = real case; 5 = open world;
 	int complexityConsumer <- 0;//0 = random buy; 1 = 2 types of consumers; 2 = real localisation;
@@ -98,12 +81,6 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 		//initialisation of the environnement
 		useDistance <- false;
 		collectProbabilist <- false;
-//		if(complexityConsumer<1){
-//			proba_build_again <- 0.0;	
-//		}
-//		if(complexityProducer<3){
-//			proba_reuse <- 0.0;	
-//		}
 		//initialisation of the environnement
 		if(complexityEnvironment>0){
 			//distance variations
@@ -292,24 +269,45 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	 */
 	 //TODO : création/disparition des petites atelirs, gestion du stockage chez les consommateurs (les grosses villes seulement)
 	reflex updateSimulation{
-		//TODO : Big Consumers stocking more production than their need if they collected all their need.
+		//TODO : Big Consumers stocking more production than their need if they collected all their need(if(collect >=need)).
 		if(complexityProducer>2){
-			
+			loop tempConsum over: Consumer{
+				tempConsum.has_stock <- true;
+				tempConsum.quantityStocked <- 0;
+				if (tempConsum.collect>=tempConsum.need){
+					loop tempInt over: Producer{
+					if(useDistance and tempConsum.percentageCollect[tempInt.my_inter] > 0.0){
+						if (flip(tempConsum.percentageCollect[tempInt.my_inter])){
+							if(tempInt.activated){
+								int collectStock <- 0;
+								collectStock <- round(tempConsum.percentageCollect[tempInt.my_inter]*(tempInt.stockMax-tempInt.production));
+								collectStock <- round(collectStock * rnd(1000/1000));
+								if(collectStock>0){
+										write tempConsum.name + " buy prod Type 2 " + collectStock + " " + tempInt.name;
+										tempConsum.has_stock <- true;
+										tempConsum.quantityStocked <- tempConsum.quantityStocked + collectStock;
+										create Ware number: 1{
+											prodPlace <- tempInt;
+											origin <- tempInt.my_inter;
+											quantity <- collectStock;
+											target <- tempConsum.location;
+											distance <- tempConsum distance_to tempInt;
+											put true at:self.prodPlace in: tempConsum.presenceProd;
+											add self to: tempConsum.wareStocked;
+										}
+										//tempInt.stock <- tempInt.stock - collectTemp;
+										tempInt.production <- tempInt.production + collectStock;
+									}
+									ask tempInt{
+									stock <- stock - collectStock;
+									}	
+								}
+							}
+						}
+					}
+				}
+			}
 		}
-//		if(complexityConsumer>0){
-//			loop tempConsum over: Consumer where (each.is_built){
-//				if(flip(proba_build_again) and tempConsum.need<3*consumRateFixed){
-//					tempConsum.is_built <- false;
-//					tempConsum.need <- tempConsum.need + rnd(consumRate);
-//					if tempConsum.prestigious {
-//						tempConsum.needType1 <- round(tempConsum.need*percentageType1Prestigeous);
-//					} else {
-//						tempConsum.needType1 <- round(tempConsum.need*percentageType1NotPrestigeous);
-//					}
-//					tempConsum.needType2 <- tempConsum.need-tempConsum.needType1;
-//				}
-//			}
-//		}
 		
 		//TODO : Activate/de-activate small producers
 		if(complexityProducer>1){
@@ -370,7 +368,6 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 			distanceMax <- first(Ware).distance;
 			distanceMin <- first(Ware).distance;
 		}
-		//TODO : intégrer les lignes avec le précédent inter
 		loop temp over: Ware{
 			averageDistance<- averageDistance + temp.distance;
 			if(temp.distance>distanceMax){
@@ -398,6 +395,23 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 								placeProd <- tempProd;
 								consumPlace <- tempConsum;
 								shape <- line([placeProd,consumPlace],150.0);
+							}
+						}
+					}
+				}
+				loop tempInter over: tempConsum.previousPlace.keys{
+					if ((tempInter !=nil) and tempConsum.previousPlace[tempInter]){
+						bool exists<-false;
+						loop tempPoly over: PolygonWarePreviousPlace{
+							if((tempPoly.previousPlace = tempInter)and (tempPoly.consumPlace=tempConsum)){
+								exists<-true;
+							}
+						}
+						if(not exists){
+							create PolygonWarePreviousPlace number: 1{
+								previousPlace <- tempInter;
+								consumPlace <- tempConsum;
+								shape <- line([previousPlace,consumPlace],150.0);
 							}
 						}
 					}
@@ -432,26 +446,18 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 species Consumer schedules: shuffle(Consumer where (each.bigCity)) + shuffle(Consumer where not(each.bigCity))
 {
 	bool bigCity;
-//	bool priority;
 	int need <- consumRateFixed + rnd(consumRate) ;
-//	int needType1; //is a percentage of the total need, depending if the consumer is prestigious.
-//	int needType2;
 	int collect <- 0;
-//	int collectType1 <-0;
 	Intermediary my_inter; 
 	list<Ware> wareReceived <- nil;
 	list<Ware> wareStocked <- nil;
 	map<Producer,float> quantityPerProd;
 	map<Producer,bool> presenceProd;
 	map<Intermediary,bool> previousPlace; //used to display the place where wares were collected
-//	map<Intermediary,float> probabilitiesProd; //associating each prod of type 2 with a probability to choose it to buy material
 	map<Intermediary,float> percentageCollect; //associating each prod (and stocking consummers) with a percentage collected of the max possible collected per prod
 	
-//	bool is_built<-false;
 	bool has_stock <- false; //used to ease the computation durng the buying phase
 	int quantityStocked <- 0;
-	
-//	int time_to_be_built <- 0;
 	
 	float distanceMaxBigWorkshop <- 0.0;
 	float distanceMaxSmallWorkshop <- 0.0;
@@ -485,6 +491,11 @@ species Consumer schedules: shuffle(Consumer where (each.bigCity)) + shuffle(Con
 			}
 		}
 		
+		do computeDistance;
+		
+	}
+	
+	action computeDistance{
 		loop temp over: (Intermediary where(not (each.my_consum=self))){
 			if(complexityEnvironment>0){
 				if self.bigCity{
@@ -559,7 +570,6 @@ species Consumer schedules: shuffle(Consumer where (each.bigCity)) + shuffle(Con
 			} else {
 				add temp::1.0 to:percentageCollect;
 			}
-				
 		}
 	}
 	
@@ -572,238 +582,47 @@ species Consumer schedules: shuffle(Consumer where (each.bigCity)) + shuffle(Con
 	}
 	
 	/*
-	 * Updates the table of relations with producers 
+	 * Updates the table of relations with producers and intermediary
 	 */
-	action updateQuantityPerProd{
+	/*action*/reflex updateQuantityPerProd{
+		loop temp over:Intermediary{
+			previousPlace[temp]<-false;
+		}
 		loop temp over:wareReceived{
 			quantityPerProd[temp.prodPlace]<-quantityPerProd[temp.prodPlace]+temp.quantity;
+			previousPlace[temp.origin]<-true;
 		}
 	}
-	
-	/*
-	 * Change the built status of a consumer
-	 * TOTO : No more is_built
-	 */
 
-//	reflex updateBuilt when:not is_built{
-//		if(collect>=needType2 and collectType1>=needType1){
-//			is_built <- true;
-//			do updateQuantityPerProd;
-//			write self.name + " is built";
-//		}
-//		time_to_be_built <- time_to_be_built +1;
-//	}
-	
-
-	//TODO : FAIRE UN SEUL BUY (on récupère une portion du max qu'on peut, en fonction de la distance. Pour les petits ateliers, on récupère une quantité au hasard de ce max possible)
 	reflex buy {
-//		if(complexityConsumer>1){
-//			//Buying type 1
-//			if(complexityProducer>1){
-//				do buyType1;
-//				
-//			} else {
-//				collectType1 <- needType1;
-//				write "NO TYPE 1 PRODUCER";
-//			}
-//		}
-		//buying Type 2
-//		if(createNewProducers and complexityEnvironment>0){
-//			do activateProducer;
-//		}
 		do buyCeramic(complexityConsumer,complexityProducer);
 		do updateDistance;
 		
 	}
 	
-	/*
-	 * Buys the Type 1 of wares. Collects the maximum possible to the closest producer of this types and so on until all needs are collected or no more producers are available.
-	 */
-//	action buyType1{
-//		list<Intermediary> temp <- Intermediary where (/*not(each.is_Consumer) and*/ each.type=1 or each.type=0);
-//		//Type 0 is for reusability
-//		if(useDistance){
-//			temp <- temp sort_by((each distance_to self) + each.price);
-//		} else {
-//			temp <- shuffle(temp);
-//		}
-//		loop tempInt over: temp{
-//			if(percentageCollect[tempInt] > 0.0){
-//				if (collectType1<needType1){
-//					int collectTemp;
-//					if((tempInt.is_Producer and tempInt.my_prod.activated)){
-//					collectTemp <- min(needType1-collectType1,round(self.percentageCollect[tempInt]*(tempInt.my_prod.stockMax-tempInt.my_prod.production)));
-//					if(collectProbabilist){
-//						collectTemp <- round((rnd (1000) / 1000)*collectTemp);
-//					}
-//					collectType1 <- collectType1+collectTemp;
-//					if(collectTemp>0){
-//							write self.name + " buy prod Type 1 " + collectTemp + " " + tempInt.name;
-//							create Ware number: 1{
-//								prodPlace <- tempInt.my_prod;
-//								origin <- tempInt;
-//								quantity <- collectTemp;
-//								target <- myself.location;
-//								distance <- myself distance_to tempInt.my_prod;
-//								put true at:self.prodPlace in: myself.presenceProd;
-//								add self to: myself.wareReceived;
-//							}
-//							//tempInt.stock <- tempInt.stock - collectTemp;
-//							tempInt.my_prod.production <- tempInt.my_prod.production + collectTemp;
-//						}
-//					} else if((not(tempInt.is_Producer)) and (not(tempInt.is_Consumer))){
-//						collectTemp <- min(needType1-collectType1,round(self.percentageCollect[tempInt]*tempInt.stock));
-//						collectType1 <- collectType1+collectTemp;
-//						if(collectTemp>0){
-//							write self.name + " buy inter Type 1 " + collectTemp + " " + tempInt.name;
-//							list<Ware> tempWares <- Ware where(each.location = tempInt.location);
-//							bool endCollecting <- false;
-//							int recupWare<-0;
-//							loop tempLoop over: tempWares{
-//								if(not endCollecting){
-//									if (recupWare+tempLoop.quantity <= collectTemp) {
-//										recupWare <- recupWare + tempLoop.quantity;
-//										tempLoop.target <- self.location;
-//										tempLoop.distance <- tempLoop.distance + tempLoop distance_to self;
-//										put true at:tempLoop.prodPlace in: presenceProd;
-//										add tempLoop to: wareReceived;
-//									} else {
-//										create Ware number: 1{
-//											quantity <- collectTemp-recupWare;
-//											target <- myself.location;
-//											distance <- tempLoop.distance + self distance_to myself;
-//											origin <- tempLoop.origin;
-//											prodPlace <- tempLoop.prodPlace;
-//											put true at:self.prodPlace in: myself.presenceProd;
-//											add self to: myself.wareReceived;
-//										}
-//										tempLoop.quantity <- tempLoop.quantity - (collectTemp-recupWare);
-//										recupWare <- collectTemp;
-//									}
-//									if(recupWare >= collectTemp){
-//										endCollecting <- true;
-//									}
-//								}
-//							}
-//						}
-//						ask tempInt{
-//							stock <- stock - collectTemp;
-//						}	
-//					} else if (tempInt.is_Consumer and (not(tempInt.my_consum=self)) and tempInt.my_consum.is_reused){
-//						//buy the reused of a concumer
-//						collectTemp <- min(needType1-collectType1,round(self.percentageCollect[tempInt]*tempInt.my_consum.quantity_reused_type1));
-//						collectType1 <- collectType1+collectTemp;
-//						if(collectTemp>0){
-//							write self.name + " buy re-use Type 1 " + collectTemp;
-//							list<Ware> tempWares <- Ware where(each.location = tempInt.location);
-//							bool endCollecting <- false;
-//							int recupWare<-0;
-//							loop tempLoop over: tempWares{
-//								if(not endCollecting){
-//									if (recupWare+tempLoop.quantity <= collectTemp) {
-//										recupWare <- recupWare + tempLoop.quantity;
-//										tempLoop.target <- self.location;
-//										tempLoop.distance <- tempLoop.distance + tempLoop distance_to self;
-//										put true at:tempLoop.prodPlace in: presenceProd;
-//										add tempLoop to: wareReceived;
-//									} else {
-//										create Ware number: 1{
-//											quantity <- collectTemp-recupWare;
-//											target <- myself.location;
-//											distance <- tempLoop.distance + self distance_to myself;
-//											origin <- tempLoop.origin;
-//											prodPlace <- tempLoop.prodPlace;
-//											put true at:self.prodPlace in: myself.presenceProd;
-//											add self to: myself.wareReceived;
-//										}
-//										tempLoop.quantity <- tempLoop.quantity - (collectTemp-recupWare);
-//										recupWare <- collectTemp;
-//									}
-//									if(recupWare >= collectTemp){
-//										endCollecting <- true;
-//									}
-//								}
-//							}
-//						}
-//						ask tempInt.my_consum{
-//							quantity_reused_type1 <- quantity_reused_type1 - collectTemp;
-//						}	
-//					}
-//				}
-//			}
-//		}
-//		my_inter.capacity <- needType1;
-//		my_inter.stock <- collectType1;
-//	}
-	
-	/*
-	 * Activation of closed producers orcreation of new ones, for the type 2 because no producers are reachable.
-	 */
-//	action activateProducer{
-//		Intermediary tempProd <- (Intermediary where (each.is_Producer and (each.type=2))) closest_to self;
-//		if(tempProd=nil or (tempProd distance_to self)>self.distanceMinType2 or tempProd.my_prod.stockMax <=0){
-//			write self.name + " create a producer";
-//			do createProducerType2(self,self.distanceMinType2);
-//		}
-//	}
 	 /*
 	  *  If collect is 0 (or below a certain threshold), incerease the buying distance
 	  */
-	  //TODO : fonction utilisée si acune céramique n'a été collectée
 	action updateDistance {
 		if(collect=0){
 			//agrandir le rayon en fonction de son type et recalculer les valeurs (trouver un moyen d'optimiser)
+			//Augmenter la collect si on n'a ren récupéré ?
+			//TODO : placer l'incrément en variable
+			if(bigCity){
+				distanceMaxBigWorkshop <- distanceMaxBigWorkshop + 30.0;
+				distanceMaxSmallWorkshop <- distanceMaxSmallWorkshop + 15.0;
+				do computeDistance;
+			} else {
+				distanceMaxSmallWorkshop <- distanceMaxSmallWorkshop + 10.0;
+				do computeDistance;
+			}
 		}
 	}
-	
-//	action createProducerType2(Consumer test,float distance){
-//		create Producer number: 1{
-//			type<-2;
-//			geometry area <- (circle(distance,test.location)) inter first(BackMap);
-//			location <- any_location_in(area);
-//			create Intermediary number: 1{
-//				location <-myself.location;
-//				is_Consumer <- false;
-//				my_consum <- nil;
-//				is_Producer <- true;
-//				my_prod <- myself;
-//				capacity <- myself.stockMax;
-//				stock <- myself.stock;
-//				type<-2;
-//				
-//				ask myself{
-//					my_inter <- myself;
-//				}
-//			}
-//			loop temp over: (Intermediary where (not(each.is_Producer))){
-//				if(temp.is_Consumer){
-//					float computationTemp;
-//					computationTemp <- -(((self distance_to temp) + temp.price)-(/*test.distanceMinType2+*/distanceMaxNotBigCity))/distanceMaxNotBigCity;
-//					if(computationTemp < 0.0){
-//						computationTemp <- 0.0;
-//					}
-//					if(computationTemp > 1.0){
-//						computationTemp <- 1.0;
-//					}
-//					add self.my_inter::computationTemp to:temp.my_consum.percentageCollect;
-//					
-//				} else {
-//					float computationTemp2 <- (distanceMaxIntermediary-((self distance_to temp) + temp.price))/distanceMaxIntermediary;
-//					if(computationTemp2 < 0.0){
-//						computationTemp2 <- 0.0;
-//					}
-//					if(computationTemp2 > 1.0){
-//						computationTemp2 <- 1.0;
-//					}
-//					add  self.my_inter::computationTemp2 to:temp.percentageCollect;
-//				}
-//			}
-//		}
-//	}
 	
 	/*
 	 * Buys the maximum of wares to the closest reachable producer, and so on.
 	 */
+	 //TODO : DEBUG (achat aux gros ateliers à vérifier)
 	action buyCeramic(int complexConsum, int complexProd){
 		list<Intermediary> temp; 
 		if(complexProd < 3){
@@ -824,6 +643,9 @@ species Consumer schedules: shuffle(Consumer where (each.bigCity)) + shuffle(Con
 					if(tempInt.is_Producer and tempInt.my_prod.activated){
 					if(collectProbabilist){
 						collectTemp <- min(need-collect,round(self.percentageCollect[tempInt]*(tempInt.my_prod.stockMax-tempInt.my_prod.production)));
+						if (tempInt.my_prod.type=2){
+							collectTemp <- round(collectTemp * rnd(1000/1000));
+						}
 					} else {
 						collectTemp <- min(need-collect,tempInt.my_prod.stockMax-tempInt.my_prod.production);
 					}
@@ -886,7 +708,7 @@ species Consumer schedules: shuffle(Consumer where (each.bigCity)) + shuffle(Con
 						collect <- collect+collectTemp;
 						if(collectTemp>0){
 							write self.name + " buy re-use Type 2 " + collectTemp;
-							list<Ware> tempWares <- Ware where(each.location = tempInt.location);
+							list<Ware> tempWares <- wareStocked;
 							bool endCollecting <- false;
 							int recupWare<-0;
 							loop tempLoop over: tempWares{
@@ -986,7 +808,7 @@ species Consumer schedules: shuffle(Consumer where (each.bigCity)) + shuffle(Con
 						collect <- collect+collectTemp;
 						if(collectTemp>0){
 							write self.name + " buy re-use Type 2 " + collectTemp;
-							list<Ware> tempWares <- Ware where(each.location = tempInt.location);
+							list<Ware> tempWares <- wareStocked;
 							bool endCollecting <- false;
 							int recupWare<-0;
 							loop tempLoop over: tempWares{
@@ -1035,6 +857,7 @@ species Consumer schedules: shuffle(Consumer where (each.bigCity)) + shuffle(Con
 //		draw circle(distanceMinType2) color: #black empty: true border: #black;
 	}
 	aspect icon {
+		//TODO : create icons for ceramic model
 //		if(prestigious){
 //			if(priority){
 //				my_icon <- image_file("../images/Chateau.png");
@@ -1196,10 +1019,11 @@ species Producer  schedules: shuffle(Producer){
 	}
 	
 	aspect icon {
-		if(my_icon=nil){
-			my_icon <- image_file("../images/Tas_de_pierres_mieux.png");
-		}
-		draw my_icon size:20;
+		//TODO : create icons for the ceramic producers
+//		if(my_icon=nil){
+//			my_icon <- image_file("../images/Tas_de_pierres_mieux.png");
+//		}
+//		draw my_icon size:20;
 	}
 }
 
@@ -1312,7 +1136,6 @@ experiment Spreading type: gui {
 			species BackMap aspect:base;
 		}
 		
-		//TODO : Ajouter un affichage avec l'intermédiaire précédent.
 		display previous_place background: #lightgray {
 			species PolygonWarePreviousPlace aspect: base;
 			species BackMap aspect:base;
@@ -1327,6 +1150,7 @@ experiment Spreading type: gui {
 			}
 		}
 		
+		//TODO Update to display a ratio at every step
 		display "information on consumers" /*type:java2D*/{
 			chart "information on consumers" type:histogram
 			style:stack
