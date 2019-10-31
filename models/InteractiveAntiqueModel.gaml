@@ -29,7 +29,7 @@ global /*schedules: [world] + Consumer + shuffle(Intermediary) + shuffle(Ware) +
 	 * Temporary variables for the environment
 	 */
 //	bool use_map <- true parameter:true;
-	int areaMap <- 110 parameter: true;
+	int areaMap <- 1100 parameter: true;
 	int endTime <- 300 parameter: true;
 	
 	file envelopeMap_shapefile <- file("../includes/envelopeMap.shp");
@@ -515,8 +515,8 @@ species Consumer schedules: shuffle(Consumer where (each.bigCity)) + shuffle(Con
 					}
 					if(temp.type=1){
 						add temp::computationType1 to:percentageCollect;
-					} else if (temp.type=0){
-						add temp::computationType1 to:percentageCollect;
+					} else if (temp.type=2){
+						add temp::computationType2 to:percentageCollect;
 					}
 				} else {
 					float computationType1 <- -(((self distance_to temp) + temp.price)-(distanceMaxSmallWorkshop))/distanceMaxSmallWorkshop;
@@ -535,8 +535,8 @@ species Consumer schedules: shuffle(Consumer where (each.bigCity)) + shuffle(Con
 					}
 					if(temp.type=1){
 						add temp::computationType1 to:percentageCollect;
-					} else if (temp.type=0){
-						add temp::computationType1 to:percentageCollect;
+					} else if (temp.type=2){
+						add temp::computationType2 to:percentageCollect;
 					}
 				}
 				if(not(temp.is_Producer) and complexityProducer>2){
@@ -622,12 +622,11 @@ species Consumer schedules: shuffle(Consumer where (each.bigCity)) + shuffle(Con
 	/*
 	 * Buys the maximum of wares to the closest reachable producer, and so on.
 	 */
-	 //TODO : DEBUG (achat aux gros ateliers à vérifier)
 	action buyCeramic(int complexConsum, int complexProd){
 		list<Intermediary> temp; 
 		if(complexProd < 3){
 			//No stock so we remove the consumers from the list of possible producers where it is possble to buy
-			temp <- Intermediary where not(each.type=0);
+			temp <- Intermediary where (each.type=1 or each.type=2);
 		} else {
 			temp <- Intermediary where true;
 		}
@@ -948,7 +947,6 @@ species Intermediary  schedules: shuffle(Intermediary){
 
 
 //Definition of producers
-//TODO : Modifier pour garder trace de la prod précédente
 species Producer  schedules: shuffle(Producer){
 	int personnalInitRessource <- 0;
 	int production <- 0 ;
@@ -1150,7 +1148,6 @@ experiment Spreading type: gui {
 			}
 		}
 		
-		//TODO Update to display a ratio at every step
 		display "information on consumers" /*type:java2D*/{
 			chart "information on consumers" type:histogram
 			style:stack
